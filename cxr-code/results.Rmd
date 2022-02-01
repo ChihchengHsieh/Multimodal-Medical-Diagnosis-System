@@ -1,0 +1,721 @@
+---
+title: "Results for `Deep learning for automated pathology detection in chest radiographs: Algorithm development and comparison to practicing radiologists'"
+author: "Robyn L. Ball"
+date: "2018-08-23"
+output: html_notebook
+---
+
+Ground truth: use majority vote of 3 chest radiologists: chest 1-3
+
+Compare the model, residents (res 1-3), and board-certified radiologists (bc 1-6) to the ground truth.
+
+```{r, echo=FALSE}
+chest <- paste0("r_chest",1:3)
+bc <- paste0("r_bc",1:6)
+residents <- paste0("r_res",1:3)
+```
+
+load libraries and set options
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+You will need to install the following packages.
+
+```{r, echo=FALSE, warning=FALSE}
+library(pROC)
+library(RColorBrewer)
+library(ConSpline)
+library(ggplot2)
+library(reshape2)
+library(irr)
+library(boot)
+library(MESS)
+library(gridExtra)
+options(stringsAsFactors = FALSE)
+outdir <- "../results/submission/" # where to save the results
+```
+
+compute the ground truth as majority vote of 3 chest radiologists and calculate the exact Fleiss' kappa
+
+```{r, echo=FALSE}
+rdir <- "../data/labels/" # radiology labels directory
+t <- list()
+for (j in 1:length(chest)) {
+  fn <- paste0(rdir,chest[j],".csv")
+  t[[j]] <- read.csv(fn)[,2:15]
+  t[[j]][is.na(t[[j]])] <- 0 # blanks in files = 0
+}
+finds <- colnames(t[[1]]) # findings
+nfinds <- length(finds) 
+nobs <- nrow(t[[1]])
+truth <- array(NA, dim=c(nobs,nfinds),
+               dimnames = list(NULL,finds))
+kappa <- array(NA, dim=c(nfinds,1),
+               dimnames = list(finds,"chest"))
+for (i in 1:nfinds) {
+  find <- finds[i]
+  tt <- NULL
+  for (j in 1:length(chest)) {
+    tt <- cbind(tt, t[[j]][,find])
+  }
+  kappa[i,1] <- kappam.fleiss(tt, exact = TRUE)$value
+  truth[,i] <- as.numeric(rowMeans(tt) > 0.5)
+}
+colnames(truth)[colnames(truth)=="Pleural_Thickening"] <- "Pleural-thickening"
+tt <- data.frame(N=colSums(truth),Percentage=round(colMeans(truth)*100,1),kappa)
+fn <- paste0(outdir,Sys.Date(),"_truth_table.csv")
+write.csv(tt, fn)
+fn <- paste0(outdir, Sys.Date(),"_FleissKappa.csv")
+write.csv(kappa,fn)
+knitr::kable(tt, digits=3)
+```
+
+read in data from test radiologists (BC and residents)
+
+```{r}
+test <- c(bc, residents)
+ntest <- length(test)
+fn <- paste0(rdir,test[1],".csv")
+df <- read.csv(fn)[,2:15]
+df[is.na(df)] <- 0 # blanks in files = 0
+df <- cbind(rad_id=rep(test[1],nrow(df)),df)
+
+for (j in 2:ntest) {
+  fn <- paste0(rdir,test[j],".csv")
+  dd <- read.csv(fn)[,2:15]
+  dd[is.na(dd)] <- 0
+  dd <- cbind(rad_id=rep(test[j],nrow(dd)),dd)
+  df <- rbind(df, dd)
+}
+```
+
+read in final model predictions
+
+```{r}
+mdir <- "../data/"
+fn <- paste0(mdir,"final_probs.csv")
+mdf <- read.csv(fn)[1:nobs,3:16]
+# column names are in a different order
+colnames(mdf)[which(colnames(mdf)=="pleural.thickening")] <- "Pleural-thickening"
+colnames(df)[which(colnames(df)=="Pleural_Thickening")] <- "Pleural-thickening"
+finds[which(finds=="Pleural_Thickening")] <- "Pleural-thickening"
+# capitalize findings
+.simpleCap <- function(x) {
+    s <- strsplit(x, " ")[[1]]
+    paste(toupper(substring(s, 1, 1)), substring(s, 2),
+          sep = "", collapse = " ")
+}
+colnames(mdf) <- as.vector(sapply(colnames(mdf),.simpleCap))
+matc <- match(colnames(df)[2:15],colnames(mdf))
+# reorder mdf columns 
+mdf <- mdf[,matc]
+```
+
+read in model predictions trained on original NIH labels
+
+```{r}
+fn <- "../data/probs_original.csv"
+origdf <- read.csv(fn)[1:nobs,3:16]
+# column names are in a different order
+colnames(origdf)[which(colnames(origdf)=="pleural.thickening")] <- "Pleural-thickening"
+colnames(origdf) <- as.vector(sapply(colnames(origdf),.simpleCap))
+matc <- match(colnames(df)[2:15],colnames(origdf))
+# reorder mdf columns 
+origdf <- origdf[,matc]
+```
+
+thresholds from validation set
+
+```{r}
+thresh <- c(0.75185317,0.86045086 ,0.7312175,0.83123577,0.63273901,0.75189936,
+  0.71835887,0.69288576,0.75975639,0.72703892,0.83110636,0.78941596,
+  0.86919022,0.74413335)
+names(thresh) <- c('Cardiomegaly', 'Emphysema', 'Effusion', 'Hernia', 'Infiltration', 'Mass', 'Nodule', 'Atelectasis', 'Pneumothorax', 'Pleural-thickening', 'Pneumonia', 'Fibrosis', 'Edema', 'Consolidation')
+thresh
+```
+
+read in original labels to get table
+
+```{r}
+fn <- paste0(rdir,"orig_labels.csv")
+odf <- read.csv(fn)[,2:15]
+colnames(odf)[which(colnames(odf)=="Pleural.Thickening")] <- "Pleural-thickening"
+oo <- data.frame(N=colSums(odf),Percent=round(colMeans(odf)*100,1),kappa=rep(NA,nfinds))
+# get Cohen's kappa between NIH labels and reference standard
+for (i in 1:nfinds) {
+  find <- rownames(oo)[i]
+  oo$kappa[i] <- kappa2(cbind(odf[,find],truth[,find]))$value
+}
+fn <- paste0(outdir, Sys.Date(),"_orig_labels_table.csv")
+write.csv(oo, fn)
+knitr::kable(oo)
+```
+Set up ground truth and resident and bc datasets for micro averages
+
+```{r}
+# resident data frame (stacked)
+rdf <- df[which(df$rad_id %in% residents),]
+# BC rad data frame (stacked)
+bcdf <- df[which(df$rad_id %in% bc),]
+# stacked ground truth for residents (3 rads)
+rgt <- rbind(truth,truth,truth)
+# stacked gt for BCs (6 rads)
+bcgt <- rbind(rgt,rgt)
+```
+
+Set up functions for F1, kappa, sensitivity, specificity, ppv, npv
+
+```{r}
+.tp <- function(gt,prediction) {
+  length(which(gt==1 & prediction==1))
+}
+.fp <- function(gt,prediction) {
+  length(which(gt==0 & prediction==1))
+}
+.fn <- function(gt,prediction) {
+  length(which(gt==1 & prediction==0))
+}
+.tn <- function(gt,prediction) {
+  length(which(gt==0 & prediction==0))
+}
+```
+
+make available to use with bootstrap by using indices
+
+```{r}
+# dd is a dataframe with columns gt & prediction
+get.measures <- function(dd, indices) {
+  TP <- .tp(gt = dd$gt[indices], prediction=dd$prediction[indices])
+  TN <- .tn(gt = dd$gt[indices], prediction=dd$prediction[indices])
+  FP <- .fp(gt = dd$gt[indices], prediction=dd$prediction[indices])
+  FN <- .fn(gt = dd$gt[indices], prediction=dd$prediction[indices])
+  sens <- TP/(TP + FN)
+  spec <- TN/(TN + FP)
+  f1 <- (2*TP)/(2*TP + FP + FN)
+  kappa <- kappa2(ratings = dd[indices,], weight="unweighted")$value
+  ppv <- TP/(TP + FP)
+  npv <- TN/(TN + FN)
+  c(x=spec, y=sens, f1=f1, ckappa=kappa, ppv=ppv, npv=npv)
+}
+```
+
+Get measures on the test set
+
+```{r, echo=FALSE}
+measures <- array(NA, dim=c(ntest+3,6,nfinds),
+                  dimnames = list(c(test,"Algorithm","Residents","BCs"),
+                                  c("Specificity","Sensitivity","F1",
+                                    "Cohen's Kappa","PPV","NPV"),finds))
+for (i in 1:nfinds) {
+  find <- finds[i]
+  dd <- data.frame(gt=truth[,find])
+  for (j in 1:ntest) {
+    is.rad <- which(df$rad_id==test[j])
+    dd$prediction <- df[is.rad,find]
+    measures[j,,i] <- get.measures(dd, indices=1:nrow(dd))
+  }
+  # algorithm
+  dd$prediction <- as.numeric(mdf[,find] >= thresh[find])
+  measures[j+1,,i] <- get.measures(dd, indices=1:nrow(dd))
+  # residents
+  dd <- data.frame(gt=rgt[,find],prediction=rdf[,find])
+  measures[j+2,,i] <- get.measures(dd, indices=1:nrow(dd))
+  # BCs
+  dd <- data.frame(gt=bcgt[,find],prediction=bcdf[,find])
+  measures[j+3,,i] <- get.measures(dd, indices=1:nrow(dd))
+}
+ round(measures, digits = 3)
+```
+collapse nodule & mass
+
+```{r}
+measures.c <- array(NA, dim=c(ntest+3,6),
+                  dimnames = list(c(test,"Algorithm","Residents","BCs"),
+                                  c("Specificity","Sensitivity","F1",
+                                    "Cohen's Kappa","PPV","NPV")))
+is.set <- c("Nodule","Mass")
+  dd <- data.frame(gt=as.numeric(truth[,is.set[1]]==1 | truth[,is.set[2]]==1))
+  for (j in 1:ntest) {
+    is.rad <- which(df$rad_id==test[j])
+    dd$prediction <- as.numeric(df[is.rad,is.set[1]]==1 | df[is.rad,is.set[2]]==1)
+    measures.c[j,] <- get.measures(dd, indices=1:nrow(dd))
+  }
+  # algorithm
+  dd$prediction <- as.numeric(mdf[,is.set[1]] >= thresh[is.set[1]] | 
+                                mdf[,is.set[2]] >= thresh[is.set[2]])
+  measures.c[j+1,] <- get.measures(dd, indices=1:nrow(dd))
+  # residents
+  dd <- data.frame(gt=as.numeric(rgt[,is.set[1]]==1 | 
+                                   rgt[,is.set[2]]==1),
+                   prediction=as.numeric(rdf[,is.set[1]]==1 | rdf[,is.set[2]]==1))
+  measures.c[j+2,] <- get.measures(dd, indices=1:nrow(dd))
+  # BCs
+  dd <- data.frame(gt=as.numeric(bcgt[,is.set[1]]==1 | 
+                                   bcgt[,is.set[2]]==1),
+                   prediction=as.numeric(bcdf[,is.set[1]]==1 | bcdf[,is.set[2]]==1))
+  measures.c[j+3,] <- get.measures(dd, indices=1:nrow(dd))
+ round(measures.c, digits = 3)
+```
+
+Collapse pneumonia, infiltration, consolidation
+
+```{r}
+measures.c <- array(NA, dim=c(ntest+3,6),
+                  dimnames = list(c(test,"Algorithm","Residents","BCs"),
+                                  c("Specificity","Sensitivity","F1",
+                                    "Cohen's Kappa","PPV","NPV")))
+is.set <- c("Pneumonia","Infiltration","Consolidation")
+  dd <- data.frame(gt=as.numeric(truth[,is.set[1]]==1 | 
+                                   truth[,is.set[2]]==1 |
+                                   truth[,is.set[3]]==1))
+  for (j in 1:ntest) {
+    is.rad <- which(df$rad_id==test[j])
+    dd$prediction <- as.numeric(df[is.rad,is.set[1]]==1 | 
+                                  df[is.rad,is.set[2]]==1 |
+                                  df[is.rad,is.set[3]]==1)
+    measures.c[j,] <- get.measures(dd, indices=1:nrow(dd))
+  }
+  # algorithm
+  dd$prediction <- as.numeric(mdf[,is.set[1]] >= thresh[is.set[1]] | 
+                                mdf[,is.set[2]] >= thresh[is.set[2]] |
+                                mdf[,is.set[3]] >= thresh[is.set[3]])
+  measures.c[j+1,] <- get.measures(dd, indices=1:nrow(dd))
+  # residents
+  dd <- data.frame(gt=as.numeric(rgt[,is.set[1]]==1 | 
+                                   rgt[,is.set[2]]==1 |
+                                   rgt[,is.set[3]]==1),
+                   prediction=as.numeric(rdf[,is.set[1]]==1 | 
+                                           rdf[,is.set[2]]==1 |
+                                           rdf[,is.set[3]]==1))
+  measures.c[j+2,] <- get.measures(dd, indices=1:nrow(dd))
+  # BCs
+  dd <- data.frame(gt=as.numeric(bcgt[,is.set[1]]==1 | 
+                                   bcgt[,is.set[2]]==1 |
+                                   bcgt[,is.set[3]]==1),
+                   prediction=as.numeric(bcdf[,is.set[1]]==1 | 
+                                           bcdf[,is.set[2]]==1 |
+                                           bcdf[,is.set[3]]==1))
+  measures.c[j+3,] <- get.measures(dd, indices=1:nrow(dd))
+ round(measures.c, digits = 3)
+```
+
+Set up function for bootstrap estimates of model sens/spec
+
+```{r}
+get.mss <- function(dd, indices) {
+  mss <- pROC::roc(response=dd$gt[indices], predictor=dd$prediction[indices])
+  mss
+}
+```
+
+Calculate AUCs for model and radiologists
+
+```{r}
+# rxx is returned from get.curve() and mrr is a roc object based on the model predictions. We will calculate both the same way.
+get.aucs <- function(rxx,mrr) {
+  m <- MESS::auc(1-mrr$specificities,mrr$sensitivities)
+  r <- MESS::auc(rxx$x,rxx$y)
+  c(model=m,rads=r)
+}
+```
+
+Construct ROCs for the radiologists
+
+```{r}
+get.conspline <- function(rxboot) {
+  knots <- seq(0,1,0.05)
+  rr <- rbind(c(0,0),rxboot,c(1,1)) # use anchor points
+  mod <- conspline(rr$y, rr$x, type=7, knots = knots)
+  rxx <- rr
+  rxx$y <- mod$muhat
+  rxx <- rxx[order(rxx[,1]),]
+  # make sure it is within bounds
+  rxx <- rbind(c(0,0),rxx,c(1,1))
+  rxx$y[which(rxx$y > 1)] <- 1 
+  rxx$y[which(rxx$y < 0)] <- 0
+  if (any(rxx$y < rxx$x)) {
+    rxx <- rxx[-which(rxx$y < rxx$x),]
+  }
+  unique(rxx)
+}
+```
+
+Get AUCs and plot
+
+```{r}
+sfinds <- sort(finds)
+aucs <- array(NA, dim=c(nfinds,2), 
+              dimnames = list(sfinds,c("Algorithm","Radiologists")))
+# set color palette
+pal <- brewer.pal(3,"Dark2")
+par(mfrow=c(5,3))
+for (i in 1:nfinds) {
+  find <- sfinds[i]
+  # rx are the specificity & sensitivity for bc1-6 and res1-3
+  rx <- measures[1:ntest,1:2,find]
+  rxboot <- data.frame(x=1-rx[,1],y=rx[,2])
+  # assume rad sens/spec is symmetric to get a closer fit
+  rxboot <- rbind(rxboot,data.frame(x=1-rxboot$y,y=1-rxboot$x))
+  # rxx is the fitted ROC
+  rxx <- get.conspline(rxboot)
+  is.res <- which(rownames(rx) %in% residents)
+  cols <- scales::alpha(rep(pal[1],nrow(rx)),alpha=.8)
+  mrr <- pROC::roc(response=truth[,find], predictor=mdf[,find])
+  # plot ROC for the algorithm
+  plot(mrr$specificities,mrr$sensitivities,type="l",
+       xlim=c(1,0),ylim=c(0,1), col=pal[3],lwd=2,lty=1,
+       cex.lab=1.2,asp=NA, main=find,
+       xlab="Specificity", ylab="Sensitivity")
+  # plot dichotomized spec/sens point for the algorithm
+  points(measures[ntest+1,1,find],measures[ntest+1,2,find],pch=3,
+         cex=2,lwd=4,col=pal[3])
+  # plot points for the BC rads
+  points(rx[-is.res,1],rx[-is.res,2],cex=1.8,
+         col=cols[-is.res],pch=17)
+  # plot points for the residents
+  points(rx[is.res,1],rx[is.res,2],pch=2,lwd=3,col=pal[1],cex=1.6)
+  # plot estimated radiologist ROC
+  lines(1-rxx$x,rxx$y,col=pal[1],type="l",lwd=2,lty=1)
+  abline(1,-1)
+  legend(x="bottomright",
+         legend=c("Algorithm","Resident radiologist",
+                  "BC radiologist"),
+         col=c(pal[3],pal[1],pal[1]),
+         pch=c(3,2,17), lwd=c(1,1,1), lty=c(4,4,4),
+         pt.cex = 1.6,cex=1.2, bty="n")
+  # calculate AUCs 
+  aucs[i,]<- get.aucs(rxx,mrr)
+}
+round(aucs, 3)
+```
+
+Now, use the bootstrap to get 95% CIs around these estimates
+
+```{r, echo=FALSE, warning=FALSE}
+nboots <- 10000
+nmeasures <- ncol(measures)
+measures.boot <- list()
+cnames <- paste0(rep(colnames(measures),each=2),rep(c(".lower",".upper"),nmeasures))
+ci.boot.per <- array(NA, dim=c(nrow(measures),nmeasures*2,nfinds),
+                                    dimnames=list(rownames(measures),cnames,finds))
+for (i in 1:nfinds) {
+  find <- finds[i]
+  dd <- data.frame(gt=truth[,find])
+  measures.boot[[i]] <- list()
+  for (j in 1:(nrow(measures))) {
+    if (j <= ntest) {
+      is.rad <- which(df$rad_id==test[j])
+      dd$prediction <- df[is.rad,find]
+    } else if (j==ntest+1) { # model
+      dd$prediction <- as.numeric(mdf[,find] >= thresh[find])
+    } else if (j==ntest+2) { #residents
+      dd <- data.frame(gt=rgt[,find],prediction=rdf[,find])
+    } else { #BCs
+      dd <- data.frame(gt=bcgt[,find],prediction=bcdf[,find])
+    }
+    set.seed(929) # set seed every time so we get the same set of indices
+    bs <- boot(data=dd,statistic=get.measures,R=nboots)
+    for (k in 1:nmeasures) {
+      kk <- c(k+(k-1), k*2)
+      if (all(bs$t[!is.na(bs$t[,k]),k]==1)) {
+        ci.boot.per[j,kk,i] <- c(1,1)
+      } else if (!any(is.infinite(bs$t[,k]))) {
+        cis <- boot.ci(bs,type = c("perc"),index=k)
+        ci.boot.per[j,kk,i] <- cis$perc[4:5]
+      }
+    }
+    measures.boot[[i]][[j]] <- bs
+  }
+}
+# save if you don't want to re-run
+# fn <- paste0(outdir,Sys.Date(),"_boots.RData")
+# save(measures.boot,file=fn)
+```
+
+function to extract results 
+
+```{r}
+get.bdata <- function(bs, index) {
+  res <- bs$t[,index]
+  res
+}
+```
+
+Set up function for bootstrap estimates for model sens/spec
+
+```{r}
+# returns auc of the model
+get.mauc <- function(dd, indices) {
+  mrr <- pROC::roc(response=dd$gt[indices], predictor=dd$prediction[indices])
+  MESS::auc(1-mrr$specificities,mrr$sensitivities)
+}
+```
+
+Get 95% bootstrap model aucs CIs for both the final model and the model built on the original NIH labels
+
+```{r}
+mauc.ci <- origauc.ci <- array(NA, dim=c(nfinds,2), dimnames = list(finds,c("lower","upper")))
+mauc.boot <- origauc.boot <- list()
+for (i in 1:nfinds) {
+  find <- finds[i]
+  dd <- data.frame(gt=truth[,find])
+  dd$prediction <- mdf[,find]
+    set.seed(929) # set seed every time so we get the same set of indices
+    bs <- boot(data=dd,statistic=get.mauc,R=nboots)
+    mauc.ci[i,] <- boot.ci(bs,type = c("perc"),index=1)$percent[4:5]
+    mauc.boot[[i]] <- bs
+    ## for model built on original NIH labels
+    dd$prediction <- origdf[,find]
+    set.seed(929) # set seed every time so we get the same set of indices
+    bs <- boot(data=dd,statistic=get.mauc,R=nboots)
+    origauc.ci[i,] <- boot.ci(bs,type = c("perc"),index=1)$percent[4:5]
+    origauc.boot[[i]] <- bs
+}
+# fn <- paste0(outdir,Sys.Date(),"_modelAUCboot.RData")
+# save(mauc.boot,file=fn)
+# fn <- paste0(outdir,Sys.Date(),"_origAUCboot.RData")
+# save(origauc.boot,file=fn)
+
+mauc.ci <- origauc.ci <- array(NA, dim=c(nfinds,2), dimnames = list(finds,c("lower","upper")))
+for (i in 1:nfinds) {
+  bs <- mauc.boot[[i]]
+    mauc.ci[i,] <- boot.ci(bs,
+                           type = c("perc"),index=1)$percent[4:5]
+  bs <- origauc.boot[[i]]
+    origauc.ci[i,] <- boot.ci(bs,
+                           type = c("perc"),index=1)$percent[4:5]
+}
+aucs
+origauc.ci
+```
+collect results for AUCs for final model and model based on original NIH labels
+
+```{r}
+origauc <- array(NA, dim=c(nfinds,1), dimnames = list(finds,"orig"))
+for (i in 1:nfinds) {
+  find <- finds[i]
+  dd <- data.frame(gt=truth[,find])
+  dd$prediction <- origdf[,find]
+  origauc[i,1] <- get.mauc(dd,1:nrow(dd))
+}
+origauc <- origauc[order(rownames(origauc)),1]
+model.aucs <- array(NA, dim=c(nfinds,2), dimnames = list(
+  rownames(aucs), c("Final","Original")))
+for (i in 1:nfinds) {
+  find <- finds[i]
+  model.aucs[find,1] <- paste0(round(aucs[find,1],3)," (",
+                               round(mauc.ci[find,1],3),",",
+                               round(mauc.ci[find,2],3),")")
+  model.aucs[find,2] <- paste0(round(origauc[find],3)," (",
+                               round(origauc.ci[find,1],3),",",
+                               round(origauc.ci[find,2],3),")")
+}
+model.aucs
+```
+
+
+Now, get bootstrap estimates of auc for the radiologists. We use the bootstrap results for sensitivity, specificity to calculate auc (as before) and compare to the bootstrap auc for the model (mauc.boot) to get the difference.
+
+return the 95% ci on the difference.
+
+
+```{r}
+bspec <- bsens <- array(NA, dim=c(nboots, ntest))
+auc.diff.ci <- auc.rad.ci <- array(NA, dim=c(nfinds,2), dimnames = list(finds,c("lower","upper")))
+auc.boots <- list()
+for (i in 1:nfinds) {
+  auc.boots[[i]] <- array(NA, dim=c(nboots,3),
+                   dimnames=list(NULL,c("rads","mod","diff")))
+  # bootstrap model aucs calculated above (same seed so on the same bootstrap samples)
+  auc.boots[[i]][,2] <- mauc.boot[[i]]$t
+  for (j in 1:ntest) {
+    # bootstrap estimates of spec and sens
+    bspec[,j] <- measures.boot[[i]][[j]]$t[,1]
+    bsens[,j] <- measures.boot[[i]][[j]]$t[,2]
+  }
+  for (k in 1:nboots) {
+    rx <- data.frame(x=bspec[k,],y=bsens[k,])
+    rxboot <- data.frame(x=1-rx[,1],y=rx[,2])
+    # assume rad sens/spec is symmetric to generate sens/spec where we don't have data
+    rxboot <- rbind(rxboot,data.frame(x=1-rxboot$y,y=1-rxboot$x))
+    rxx <- get.conspline(rxboot)
+    auc.boots[[i]][k,1]<- MESS::auc(rxx$x,rxx$y)
+  }
+  auc.boots[[i]][,3] <- auc.boots[[i]][,2] - auc.boots[[i]][,1]
+  auc.rad.ci[i,] <- quantile(auc.boots[[i]][,1], probs = c(0.025,0.975))
+  auc.diff.ci[i,] <- quantile(auc.boots[[i]][,3], probs = c(0.025,0.975))
+}
+# fn <- paste0(outdir,Sys.Date(),"_auc4rads&diff.RData")
+# save(auc.boots,file=fn)
+
+a <- 0.05/nfinds # multiple comparison correction
+bspec <- bsens <- array(NA, dim=c(nboots, ntest))
+auc.diff.ci <- auc.rad.ci <- auc.diff.ci.bon <- array(NA, dim=c(nfinds,2), dimnames = list(finds,c("lower","upper")))
+for (i in 1:nfinds) {
+  for (j in 1:ntest) {
+    # bootstrap estimates of spec and sens
+    bspec[,j] <- measures.boot[[i]][[j]]$t[,1]
+    bsens[,j] <- measures.boot[[i]][[j]]$t[,2]
+  }
+  auc.rad.ci[i,] <- quantile(auc.boots[[i]][,1], probs = c(0.025,0.975))
+  auc.diff.ci[i,] <- quantile(auc.boots[[i]][,3], probs = c(0.025,0.975))
+  auc.diff.ci.bon[i,] <- quantile(auc.boots[[i]][,3], probs = c(a/2,1-a/2))
+}
+```
+
+Collect AUC results
+
+```{r}
+aorder <- match(rownames(auc.rad.ci),rownames(aucs))
+# put in the same row order
+aucs <- aucs[aorder,]
+auc.results <- data.frame(Radiologists=aucs[,2],
+                          Rad.lower=auc.rad.ci[,1],
+                          Rad.upper=auc.rad.ci[,2],
+                          Algorithm=aucs[,1],
+                          Algo.lower=mauc.ci[,1],
+                          Algo.upper=mauc.ci[,2],
+                          Difference=aucs[,1] - aucs[,2],
+                          Diff.lower=auc.diff.ci[,1],
+                          Diff.upper=auc.diff.ci[,2],
+                          Diff.lower.bon=auc.diff.ci.bon[,1],
+                          Diff.lower.bon=auc.diff.ci.bon[,2],
+                          Significant="No difference",
+                          Bon.Significant="No difference")
+rad.better <- which(rowSums(sign(auc.diff.ci)) == -2)
+mod.better <- which(rowSums(sign(auc.diff.ci)) == 2)
+auc.results$Significant[rad.better] <- "Radiologists"
+auc.results$Significant[mod.better] <- "Algorithm"
+# bonferonni
+rad.better <- which(rowSums(sign(auc.diff.ci.bon)) == -2)
+mod.better <- which(rowSums(sign(auc.diff.ci.bon)) == 2)
+auc.results$Bon.Significant[rad.better] <- "Radiologists"
+auc.results$Bon.Significant[mod.better] <- "Algorithm"
+
+auc.results <- auc.results[order(rownames(auc.results)),]
+# fn <- paste0(outdir,Sys.Date(),"_AUCresults.csv")
+# write.csv(auc.results,fn)
+round(auc.results[,-c(12:13)], 3)
+```
+
+Collect results for the other measures
+
+```{r}
+lorder <-c("Algorithm","Residents","BCs",residents,bc)
+rnames <- c("Algorithm","Residents","BCs",
+            paste0("Resident",1:3),paste0("BC",1:6))
+kk1 <- seq(1,nmeasures*2,2)
+kk2 <- seq(2,nmeasures*2,2)
+mmall <- NULL
+corder <- NULL
+for (k in 1:nmeasures) {
+  corder <- c(corder,c(k,nmeasures+kk1[k],nmeasures+kk2[k]))
+}
+for (i in 1:nfinds) {
+  mm <- cbind(measures[lorder,,i],ci.boot.per[lorder,,i])
+  mm <- mm[,corder]
+  rownames(mm) <- rnames
+  fn <- paste0(outdir,Sys.Date(),"_",finds[i],"_results.csv")
+  write.csv(round(mm,3),fn)
+}
+```
+
+Get mean agreement over all 14 pathologies
+
+```{r}
+get.agree <- function(x,y) {
+  length(which(x==y))/length(x)
+}
+```
+
+```{r}
+mm <- mdf
+for (i in 1:nfinds) {
+  find <- finds[i]
+  mm[,find] <- as.numeric(mdf[,find] >= thresh[find])
+}
+agree <- array(NA, dim=c(nobs,ntest+1),
+               dimnames = list(NULL,c("model",test)))
+for (i in 1:nobs) {
+  agree[i,1] <- get.agree(mm[i,],truth[i,])
+  for (j in 1:ntest) {
+    is.rad <- which(df$rad_id==test[j])
+    agree[i,j+1] <- get.agree(df[is.rad[i],],truth[i,])
+  }
+}
+mu.agree <- colMeans(agree)
+# agreement across residents
+ares <- rep(NA,nrow(rdf))
+for (i in 1:nrow(rdf)) {
+  ares[i] <- get.agree(rdf[i,],rgt[i,])
+}
+mu.agree <- c(residents=mean(ares),mu.agree)
+# agreement across BC rads
+abc <- rep(NA,nrow(bcdf))
+for (i in 1:nrow(bcdf)) {
+  abc[i] <- get.agree(bcdf[i,],bcgt[i,])
+}
+mu.agree <- c(bcs=mean(abc),mu.agree)
+names(mu.agree)[which(names(mu.agree) %in% residents)] <- paste0("resident",1:3)
+names(mu.agree)[which(names(mu.agree) %in% bc)] <- paste0("BC",1:3)
+round(mu.agree, 3)
+```
+
+performance measure figures
+
+
+```{r}
+
+indir <- paste0("../results/",Sys.Date(),"_perfromance_measures/")
+kk <- seq(2,nmeasures*3+1,3)
+kk1 <- seq(3,nmeasures*3+1,3)
+kk2 <- seq(4,nmeasures*3+1,3)
+
+cols <- c(pal[3],rep(pal[2],2),rep(pal[1],3),rep(pal[1],6))
+cols2 <- c(pal[3],"white",pal[2],rep("white",3),rep(pal[1],ntest-3))
+
+gg <- list()
+for (i in 1:nfinds) {
+  find <- sfinds[i]
+  fn <- paste0(indir,"2018-02-22_",find,"_results.csv")
+  dd <- read.csv(fn)
+  colnames(dd)[1] <- "expert"
+  dd$expert[which(dd$expert=="Residents")] <- "Resident radiologists"
+  dd$expert[which(dd$expert=="BCs")] <- "Board-certified radiologists"
+  enames <- dd$expert
+  dd$expert <- factor(dd$expert, enames)
+  colnames(dd)[grep("Cohen.s.Kappa",colnames(dd))] <- "Kappa"
+  mm <- dd[,c(1,kk[1],kk1[1],kk2[1])]
+  mm$var <- rep(colnames(dd)[kk[1]])
+  colnames(mm)[2:4] <- c("y","ymin","ymax")
+  for (k in 2:nmeasures) {
+    mm2 <- dd[,c(1,kk[k],kk1[k],kk2[k])]
+    mm2$var <- rep(colnames(dd)[kk[k]])
+    colnames(mm2)[2:4] <- c("y","ymin","ymax")
+    mm <- rbind(mm,mm2)
+  }
+  mm$var <- factor(mm$var,c("Specificity","Sensitivity","PPV","NPV", "Kappa","F1"))
+  gg[[i]] <- ggplot(data=mm, aes(x=expert,y=y,fill=expert,color=expert)) +
+    geom_errorbar(aes(ymin=ymin, ymax=ymax, color=expert),width=.1) + 
+    geom_point(shape=23, aes(color=expert,fill=expert)) + 
+    facet_grid(.~var) + theme_bw() + 
+    scale_fill_manual(values=cols2) + scale_color_manual(values=cols) +
+    theme(legend.position="none") + 
+    theme(strip.background = element_rect(fill="white"),
+        strip.text = element_text(size=11),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_line(size=0),
+        legend.title = element_blank()) +
+    ylab("") + xlab("") + ggtitle(find)
+}
+
+pp <- arrangeGrob(gg[[1]],gg[[2]],gg[[3]],gg[[4]],
+             gg[[5]],gg[[6]],gg[[7]],gg[[8]],
+             gg[[9]],gg[[10]],gg[[11]],gg[[12]],
+             gg[[13]],gg[[14]],
+             ncol=1)
+fn <- paste0(outdir,"overall_performance.pdf")
+ggsave(file=fn, pp, width = 7, height=35, units="in")
+```
