@@ -9,9 +9,45 @@ from torch.autograd import Variable
 from model.densenet import densenet121
 
 
+class REFLACXClincalNet(nn.Module):
+
+    def __init__(self, num_numerical_features, output_dim, gender_emb_dim=64, dim=64, dropout=.1, ) -> None:
+        super(REFLACXClincalNet, self).__init__()
+
+        self.gender_emb = nn.Embedding(
+            2, gender_emb_dim,
+        )
+        self.net = nn.Sequential(
+            nn.Linear(gender_emb_dim + num_numerical_features, dim),
+            nn.Dropout(dropout),
+            nn.LayerNorm(dim),
+            nn.LeakyReLU(.05),
+            nn.Linear(dim, dim*2),
+            nn.Dropout(dropout),
+            nn.LayerNorm(dim*2),
+            nn.LeakyReLU(.05),
+            nn.Linear(dim*2, dim*2),
+            nn.Dropout(dropout),
+            nn.LayerNorm(dim*2),
+            nn.LeakyReLU(.05),
+            nn.Linear(dim*2, output_dim)
+        )
+
+    def forward(self, data):
+        clinical_numerical_input, clinical_categorical_input = data
+        gender_emb_out = self.gender_emb(clinical_categorical_input['gender'])
+
+        concat_input = torch.cat(
+            (clinical_numerical_input, gender_emb_out), dim=1)
+
+        return self.net(concat_input)
+
+
 class ClinicalNet(nn.Module):
-    def __init__(self, num_output_features, numerical_cols, categorical_cols, embedding_dim_maps, categorical_unique_map, device, dims=[16], ) -> None:
+    def __init__(self, num_output_features, numerical_cols, categorical_cols, embedding_dim_maps, categorical_unique_map, device, dims=[16], gender_emb_dim=64) -> None:
         super(ClinicalNet, self).__init__()
+
+        # update here to only use the data we want.
 
         fcs = []
 
@@ -64,14 +100,23 @@ class ImageDenseNet(nn.Module):
 
 
 class DecisionNet(nn.Module):
-    def __init__(self, num_input_features, num_output_features, dim) -> None:
+    def __init__(self, num_input_features, num_output_features, dim, dropout=.1) -> None:
         super(DecisionNet, self).__init__()
 
         self.net = nn.Sequential(
             nn.Linear(num_input_features, dim),
+            nn.Dropout(dropout),
             nn.LayerNorm(dim),
             nn.LeakyReLU(.05, inplace=True),
-            nn.Linear(dim,  num_output_features),
+            nn.Linear(dim, dim*2),
+            nn.Dropout(dropout),
+            nn.LayerNorm(dim*2),
+            nn.LeakyReLU(.05, inplace=True),
+            nn.Linear(dim*2, dim*2),
+            nn.Dropout(dropout),
+            nn.LayerNorm(dim*2),
+            nn.LeakyReLU(.05, inplace=True),
+            nn.Linear(dim*2,  num_output_features),
             nn.Sigmoid()
         )
 
@@ -106,9 +151,9 @@ class XAMIMultiModal(nn.Module):
         self,
         reflacx_dataset,
         device,
+        embeding_dim=64,
         joint_feature_size=64,
         model_dim=128,
-        ohe_dim_map={'gender': 64},
         use_clinical=True,
     ) -> None:
         super(XAMIMultiModal, self).__init__()
@@ -120,14 +165,23 @@ class XAMIMultiModal(nn.Module):
             categorical_unique_map[col] = torch.tensor(
                 len(reflacx_dataset.df[col].unique()))
 
-        self.clinical_net = ClinicalNet(
-            num_output_features=joint_feature_size,
-            device=self.device,
-            dims=[model_dim],
-            numerical_cols=reflacx_dataset.clinical_numerical_cols,
-            categorical_cols=reflacx_dataset.clinical_categorical_cols,
-            embedding_dim_maps=ohe_dim_map,  # define embedding dim here.
-            categorical_unique_map=categorical_unique_map
+        # self.clinical_net = ClinicalNet(
+        #     num_output_features=joint_feature_size,
+        #     device=self.device,
+        #     dims=[model_dim],
+        #     numerical_cols=reflacx_dataset.clinical_numerical_cols,
+        #     categorical_cols=reflacx_dataset.clinical_categorical_cols,
+        #     embedding_dim_maps=ohe_dim_map,  # define embedding dim here.
+        #     categorical_unique_map=categorical_unique_map
+        # )
+
+        self.clinical_net = REFLACXClincalNet(
+            dropout=.1,
+            dim=model_dim,
+            gender_emb_dim=embeding_dim,
+            num_numerical_features=len(
+                reflacx_dataset.clinical_numerical_cols),
+            output_dim=joint_feature_size,
         )
 
         self.image_net = ImageDenseNet(

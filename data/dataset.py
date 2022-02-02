@@ -19,7 +19,7 @@ class REFLACXWithClinicalDataset(data.Dataset):
                  clinical_categorical_cols=['gender'],
                  labels_cols=[
             'Airway wall thickening', 'Atelectasis', 'Consolidation',
-            'Enlarged cardiac silhouette', 'Fibrosis', 'Fracture',
+            'Enlarged cardiac silhouette', 'Fibrosis',
             'Groundglass opacity', 'Pneumothorax', 'Pulmonary edema',
             'Quality issue', 'Support devices', 'Wide mediastinum',
             'Abnormal mediastinal contour', 'Acute fracture', 'Enlarged hilum',
@@ -29,7 +29,7 @@ class REFLACXWithClinicalDataset(data.Dataset):
                      ],
                  all_disease_cols=[
             'Airway wall thickening', 'Atelectasis', 'Consolidation',
-            'Enlarged cardiac silhouette', 'Fibrosis', 'Fracture',
+            'Enlarged cardiac silhouette', 'Fibrosis',
             'Groundglass opacity', 'Pneumothorax', 'Pulmonary edema', 'Wide mediastinum',
             'Abnormal mediastinal contour', 'Acute fracture', 'Enlarged hilum',
             'Hiatal hernia', 'High lung volume / emphysema',

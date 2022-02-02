@@ -1,0 +1,429 @@
+Current learning rate is 0.0001
+================Training CM================
+====================
+Airway wall thickening
+====================
+              Pred_False  Pred_True
+Target_False         527          9
+Target_True            0          3
+====================
+====================
+Atelectasis
+====================
+              Pred_False  Pred_True
+Target_False         418          5
+Target_True            4        112
+====================
+====================
+Consolidation
+====================
+              Pred_False  Pred_True
+Target_False         443          8
+Target_True            2         86
+====================
+====================
+Enlarged cardiac silhouette
+====================
+              Pred_False  Pred_True
+Target_False         407          4
+Target_True            4        124
+====================
+====================
+Fibrosis
+====================
+              Pred_False  Pred_True
+Target_False         527         11
+Target_True            0          1
+====================
+====================
+Fracture
+====================
+              Pred_False  Pred_True
+Target_False         179        360
+Target_True            0          0
+====================
+====================
+Groundglass opacity
+====================
+              Pred_False  Pred_True
+Target_False         474         16
+Target_True            0         49
+====================
+====================
+Pneumothorax
+====================
+              Pred_False  Pred_True
+Target_False         534          3
+Target_True            0          2
+====================
+====================
+Pulmonary edema
+====================
+              Pred_False  Pred_True
+Target_False         453         19
+Target_True            2         65
+====================
+====================
+Quality issue
+====================
+              Pred_False  Pred_True
+Target_False         527          9
+Target_True            0          3
+====================
+====================
+Support devices
+====================
+              Pred_False  Pred_True
+Target_False         390          6
+Target_True            3        140
+====================
+====================
+Wide mediastinum
+====================
+              Pred_False  Pred_True
+Target_False         531          6
+Target_True            0          2
+====================
+====================
+Abnormal mediastinal contour
+====================
+              Pred_False  Pred_True
+Target_False         519          6
+Target_True            0         14
+====================
+====================
+Acute fracture
+====================
+              Pred_False  Pred_True
+Target_False         536          0
+Target_True            0          3
+====================
+====================
+Enlarged hilum
+====================
+              Pred_False  Pred_True
+Target_False         529          0
+Target_True            0         10
+====================
+====================
+Hiatal hernia
+====================
+              Pred_False  Pred_True
+Target_False         531          3
+Target_True            0          5
+====================
+====================
+High lung volume / emphysema
+====================
+              Pred_False  Pred_True
+Target_False         518          5
+Target_True            0         16
+====================
+====================
+Interstitial lung disease
+====================
+              Pred_False  Pred_True
+Target_False         527          2
+Target_True            0         10
+====================
+====================
+Lung nodule or mass
+====================
+              Pred_False  Pred_True
+Target_False         502          6
+Target_True            0         31
+====================
+====================
+Pleural abnormality
+====================
+              Pred_False  Pred_True
+Target_False         423          8
+Target_True            3        105
+====================
+================Validation CM================
+====================
+Airway wall thickening
+====================
+              Pred_False  Pred_True
+Target_False          65          3
+Target_True            0          0
+====================
+====================
+Atelectasis
+====================
+              Pred_False  Pred_True
+Target_False          42         10
+Target_True           14          2
+====================
+====================
+Consolidation
+====================
+              Pred_False  Pred_True
+Target_False          48          8
+Target_True           10          2
+====================
+====================
+Enlarged cardiac silhouette
+====================
+              Pred_False  Pred_True
+Target_False          39         12
+Target_True           11          6
+====================
+====================
+Fibrosis
+====================
+              Pred_False  Pred_True
+Target_False          67          1
+Target_True            0          0
+====================
+====================
+Fracture
+====================
+              Pred_False  Pred_True
+Target_False          30         38
+Target_True            0          0
+====================
+====================
+Groundglass opacity
+====================
+              Pred_False  Pred_True
+Target_False          57          6
+Target_True            4          1
+====================
+====================
+Pneumothorax
+====================
+              Pred_False  Pred_True
+Target_False          68          0
+Target_True            0          0
+====================
+====================
+Pulmonary edema
+====================
+              Pred_False  Pred_True
+Target_False          50          5
+Target_True           10          3
+====================
+====================
+Quality issue
+====================
+              Pred_False  Pred_True
+Target_False          68          0
+Target_True            0          0
+====================
+====================
+Support devices
+====================
+              Pred_False  Pred_True
+Target_False          35          9
+Target_True           12         12
+====================
+====================
+Wide mediastinum
+====================
+              Pred_False  Pred_True
+Target_False          66          1
+Target_True            1          0
+====================
+====================
+Abnormal mediastinal contour
+====================
+              Pred_False  Pred_True
+Target_False          62          2
+Target_True            4          0
+====================
+====================
+Acute fracture
+====================
+              Pred_False  Pred_True
+Target_False          68          0
+Target_True            0          0
+====================
+====================
+Enlarged hilum
+====================
+              Pred_False  Pred_True
+Target_False          65          1
+Target_True            2          0
+====================
+====================
+Hiatal hernia
+====================
+              Pred_False  Pred_True
+Target_False          68          0
+Target_True            0          0
+====================
+====================
+High lung volume / emphysema
+====================
+              Pred_False  Pred_True
+Target_False          66          1
+Target_True            1          0
+====================
+====================
+Interstitial lung disease
+====================
+              Pred_False  Pred_True
+Target_False          66          1
+Target_True            1          0
+====================
+====================
+Lung nodule or mass
+====================
+              Pred_False  Pred_True
+Target_False          61          2
+Target_True            5          0
+====================
+====================
+Pleural abnormality
+====================
+              Pred_False  Pred_True
+Target_False          42          8
+Target_True           12          6
+====================
+Best Validation Loss: 0.0745
+Epoch: 300 Batch:  (0) Test Loss: 0.0801
+Epoch: 300 Batch:  (1) Test Loss: 0.0759
+Epoch 300 | Loss: 0.08 | ACC: 87.71% | AUC: 0.65
+Test CM
+====================
+Airway wall thickening
+====================
+              Pred_False  Pred_True
+Target_False          66          0
+Target_True            1          0
+====================
+====================
+Atelectasis
+====================
+              Pred_False  Pred_True
+Target_False          48          7
+Target_True            6          6
+====================
+====================
+Consolidation
+====================
+              Pred_False  Pred_True
+Target_False          52          3
+Target_True            7          5
+====================
+====================
+Enlarged cardiac silhouette
+====================
+              Pred_False  Pred_True
+Target_False          50          6
+Target_True            6          5
+====================
+====================
+Fibrosis
+====================
+              Pred_False  Pred_True
+Target_False          67          0
+Target_True            0          0
+====================
+====================
+Fracture
+====================
+              Pred_False  Pred_True
+Target_False          27         40
+Target_True            0          0
+====================
+====================
+Groundglass opacity
+====================
+              Pred_False  Pred_True
+Target_False          57          3
+Target_True            6          1
+====================
+====================
+Pneumothorax
+====================
+              Pred_False  Pred_True
+Target_False          67          0
+Target_True            0          0
+====================
+====================
+Pulmonary edema
+====================
+              Pred_False  Pred_True
+Target_False          58          4
+Target_True            4          1
+====================
+====================
+Quality issue
+====================
+              Pred_False  Pred_True
+Target_False          65          2
+Target_True            0          0
+====================
+====================
+Support devices
+====================
+              Pred_False  Pred_True
+Target_False          35          8
+Target_True           17          7
+====================
+====================
+Wide mediastinum
+====================
+              Pred_False  Pred_True
+Target_False          65          2
+Target_True            0          0
+====================
+====================
+Abnormal mediastinal contour
+====================
+              Pred_False  Pred_True
+Target_False          65          0
+Target_True            2          0
+====================
+====================
+Acute fracture
+====================
+              Pred_False  Pred_True
+Target_False          66          0
+Target_True            1          0
+====================
+====================
+Enlarged hilum
+====================
+              Pred_False  Pred_True
+Target_False          67          0
+Target_True            0          0
+====================
+====================
+Hiatal hernia
+====================
+              Pred_False  Pred_True
+Target_False          64          1
+Target_True            2          0
+====================
+====================
+High lung volume / emphysema
+====================
+              Pred_False  Pred_True
+Target_False          65          0
+Target_True            1          1
+====================
+====================
+Interstitial lung disease
+====================
+              Pred_False  Pred_True
+Target_False          67          0
+Target_True            0          0
+====================
+====================
+Lung nodule or mass
+====================
+              Pred_False  Pred_True
+Target_False          61          0
+Target_True            5          1
+====================
+====================
+Pleural abnormality
+====================
+              Pred_False  Pred_True
+Target_False          43         11
+Target_True            7          6
+====================
+Training Done | TEST LOSS 0.0780 | TEST ACC 0.8771 | TEST AUC 0.6527

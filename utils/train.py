@@ -15,6 +15,11 @@ from torch.utils.data import DataLoader
 from IPython.display import clear_output
 from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
 
+from model.xami import REFLACXClincalNet
+
+from libauc.losses import AUCM_MultiLabel
+from libauc.optimizers import PESG
+
 
 class RecordUnit:
     pass
@@ -95,8 +100,6 @@ def train_epoch(epoch, model, device, dataloader, loss_fn, optimizer):
     model.to(device)
 
     batch_losses = []
-    batch_accuracy = []
-    batch_auc = []
     batch_pred = []
     batch_target = []
 
@@ -113,29 +116,19 @@ def train_epoch(epoch, model, device, dataloader, loss_fn, optimizer):
 
         batch_losses.append(loss.item())
 
-        # want accuracy here.
-        batch_accuracy.append(
-            accuracy_score(
-                label.detach().cpu().numpy().flatten(), (outputs.detach().cpu().numpy() > 0.5).astype('int64').flatten())
-        )
-
         batch_pred.extend(outputs.detach().cpu().numpy())
         batch_target.extend(label.detach().cpu().numpy())
+        # try:
+        #     auc = roc_auc_score(label.detach().cpu().numpy(
+        #     ).flatten(), outputs.detach().cpu().numpy().flatten())
+        # except ValueError:
+        #     auc = 0
 
-        RecordUnit.batch_pred = batch_pred
-        RecordUnit.batch_target = batch_target
-
-        try:
-            auc = roc_auc_score(label.detach().cpu().numpy(
-            ).flatten(), outputs.detach().cpu().numpy().flatten())
-        except ValueError:
-            auc = 0
-
-        batch_auc.append(auc)
+        # batch_auc.append(auc)
 
     train_loss = np.mean(batch_losses)
-    train_acc = np.mean(batch_accuracy)
-    train_auc = np.mean(batch_auc)
+    train_acc = accuracy_score(np.array(batch_target).flatten(), np.array(batch_pred).flatten() > 0.5)
+    train_auc = roc_auc_score(np.array(batch_target), np.array(batch_pred))
 
     print(
         f"Epoch {epoch} | Loss: {train_loss:.2f} | ACC: {train_acc*100:.2f}% | AUC: {train_auc:.2f}")
@@ -149,8 +142,6 @@ def test_epoch(epoch, model, device, dataloader, loss_fn):
     model.to(device)
 
     batch_losses = []
-    batch_accuracy = []
-    batch_auc = []
     batch_pred = []
     batch_target = []
 
@@ -163,29 +154,19 @@ def test_epoch(epoch, model, device, dataloader, loss_fn):
             batch_losses.append(loss.item())
 
             # want accuracy here.
-            batch_accuracy.append(
-                accuracy_score(
-                    label.detach().cpu().numpy().flatten(), (outputs.detach().cpu().numpy() > 0.5).astype('int64').flatten())
-            )
-
             batch_pred.extend(outputs.detach().cpu().numpy())
             batch_target.extend(label.detach().cpu().numpy())
-
-            try:
-                auc = roc_auc_score(label.detach().cpu().numpy(
-                ).flatten(), outputs.detach().cpu().numpy().flatten())
-            except ValueError:
-                auc = 0
-
-            batch_auc.append(auc)
 
             print("Epoch: {:d} Batch:  ({:d}) Test Loss: {:.4f}".format(
                 epoch, batch_idx, loss.item()))
             sys.stdout.flush()
 
+    RecordUnit.batch_pred = batch_pred
+    RecordUnit.batch_target = batch_target
+
     test_loss = np.mean(batch_losses)
-    test_acc = np.mean(batch_accuracy)
-    test_auc = np.mean(batch_auc)
+    test_acc = accuracy_score(np.array(batch_target).flatten(), np.array(batch_pred).flatten() > 0.5)
+    test_auc = roc_auc_score(np.array(batch_target), np.array(batch_pred))
 
     print(
         f"Epoch {epoch} | Loss: {test_loss:.2f} | ACC: {test_acc*100:.2f}% | AUC: {test_auc:.2f}")
@@ -418,6 +399,116 @@ def train(
             }
         )
 
+        if not scheduler is None:
+            scheduler.step(val_loss)
+
+        if (val_loss < best_loss):
+            best_loss = val_loss
+            best_model_wts = model.state_dict()
+            counter = 0
+
+        else:
+            counter += 1
+
+        if not (early_stop_count is None) and counter > early_stop_count:
+            break
+
+        torch.save(best_model_wts, os.path.join("saved_models",
+                   f"{val_auc:.4f}_{str(datetime.now())}".replace(":", "_")))
+
+        # plot the training process
+        # plot_training(train_data, val_data)
+        plot_training_v3(epoch, train_data, val_data)
+
+        print(f"Current learning rate is {optimizer.param_groups[0]['lr']}")
+
+        print("================Training CM================")
+        print_confusion_matrix(train_pred, train_target, dataset.labels_cols)
+        print("================Validation CM================")
+        print_confusion_matrix(val_pred, val_target, dataset.labels_cols)
+
+    print(f"Best Validation Loss: {best_loss:.4f}")
+
+    test_loss, test_acc, test_auc, test_pred, test_target = test_epoch(
+        epoch,
+        model,
+        dataloader=test_dataloader,
+        loss_fn=loss_fn,
+        device=device,
+    )
+
+    print("Test CM")
+    print_confusion_matrix(test_pred, test_target, dataset.labels_cols)
+
+    print(
+        f"Training Done | TEST LOSS {test_loss:.4f} | TEST ACC {test_acc:.4f} | TEST AUC {test_auc:.4f}")
+
+    return train_data, val_data
+
+
+def train_with_auc(
+        num_epochs,
+        model,
+        dataset,
+        dataloaders,
+        device,
+        lr=0.0001,
+        scheduler=None,
+        early_stop_count=3
+):
+    best_model_wts, best_loss = model.state_dict(), float("inf")
+    counter = 0
+
+    plt.ion()
+
+    train_data = []
+    val_data = []
+
+    # for every disease, we get the new loss function
+
+    imratio_list = [dataset.df[col].sum() / len(dataset)
+                    for col in dataset.labels_cols]
+
+    loss_fn = AUCM_MultiLabel(imratio=imratio_list,
+                              num_classes=len(dataset.labels_cols))
+
+    optimizer = PESG(model,
+                     a=loss_fn.a,
+                     b=loss_fn.b,
+                     alpha=loss_fn.alpha,
+                     #  lr=.05,
+                     lr=lr,
+                     gamma=500,
+                     margin=1,
+                     weight_decay=1e-5, device=device)
+
+    for epoch in range(1, num_epochs + 1):
+        print("Epoch {}/{}".format(epoch, num_epochs))
+        print("-" * 10)
+
+        train_dataloader, val_dataloader, test_dataloader = dataloaders
+
+        train_loss, train_acc, train_auc, train_pred, train_target = train_epoch(epoch, model, dataloader=train_dataloader,
+                                                                                 loss_fn=loss_fn, optimizer=optimizer, device=device)
+
+        train_data.append(
+            {
+                "loss": train_loss,
+                "acc": train_acc,
+                "auc": train_auc
+            }
+        )
+
+        val_loss, val_acc, val_auc, val_pred, val_target = test_epoch(epoch, model,
+                                                                      dataloader=val_dataloader, loss_fn=loss_fn, device=device)
+
+        val_data.append(
+            {
+                "loss": val_loss,
+                "acc": val_acc,
+                "auc": val_auc
+            }
+        )
 
         if not scheduler is None:
             scheduler.step(val_loss)
