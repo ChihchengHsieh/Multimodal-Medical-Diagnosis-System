@@ -359,14 +359,15 @@ def print_confusion_matrix(pred, target, label_cols):
         columns = ['Pred_False', 'Pred_True']
         indexes = ['Target_False', 'Target_True']
 
-        RecordUnit.pred= pred
-        RecordUnit.target= target
+        RecordUnit.pred = pred
+        RecordUnit.target = target
         RecordUnit.cms = cms
         RecordUnit.label_cols = label_cols
 
-        df_cm= pd.DataFrame(cms[col], columns=columns, index=indexes)
+        df_cm = pd.DataFrame(cms[col], columns=columns, index=indexes)
         print(df_cm)
         print("="*20)
+
 
 def train(
         num_epochs,
@@ -379,23 +380,23 @@ def train(
         loss_weighted=True,
         early_stop_count=3
 ):
-    best_model_wts, best_loss= model.state_dict(), float("inf")
-    counter= 0
+    best_model_wts, best_loss = model.state_dict(), float("inf")
+    counter = 0
 
     plt.ion()
 
-    train_data= []
-    val_data= []
+    train_data = []
+    val_data = []
 
-    loss_fn= get_loss(dataset, weighted=loss_weighted, device=device)
+    loss_fn = get_loss(dataset, weighted=loss_weighted, device=device)
 
     for epoch in range(1, num_epochs + 1):
         print("Epoch {}/{}".format(epoch, num_epochs))
         print("-" * 10)
 
-        train_dataloader, val_dataloader, test_dataloader= dataloaders
+        train_dataloader, val_dataloader, test_dataloader = dataloaders
 
-        train_loss, train_acc, train_auc, train_pred, train_target= train_epoch(epoch, model, dataloader=train_dataloader,
+        train_loss, train_acc, train_auc, train_pred, train_target = train_epoch(epoch, model, dataloader=train_dataloader,
                                                                                  loss_fn=loss_fn, optimizer=optimizer, device=device)
 
         train_data.append(
@@ -406,7 +407,7 @@ def train(
             }
         )
 
-        val_loss, val_acc, val_auc, val_pred, val_target= test_epoch(epoch, model,
+        val_loss, val_acc, val_auc, val_pred, val_target = test_epoch(epoch, model,
                                                                       dataloader=val_dataloader, loss_fn=loss_fn, device=device)
 
         val_data.append(
@@ -417,12 +418,14 @@ def train(
             }
         )
 
-        scheduler.step(val_loss)
+
+        if not scheduler is None:
+            scheduler.step(val_loss)
 
         if (val_loss < best_loss):
-            best_loss= val_loss
-            best_model_wts= model.state_dict()
-            counter= 0
+            best_loss = val_loss
+            best_model_wts = model.state_dict()
+            counter = 0
 
         else:
             counter += 1
@@ -437,14 +440,16 @@ def train(
         # plot_training(train_data, val_data)
         plot_training_v3(epoch, train_data, val_data)
 
-        print("Training CM")
+        print(f"Current learning rate is {optimizer.param_groups[0]['lr']}")
+
+        print("================Training CM================")
         print_confusion_matrix(train_pred, train_target, dataset.labels_cols)
-        print("Validation CM")
+        print("================Validation CM================")
         print_confusion_matrix(val_pred, val_target, dataset.labels_cols)
 
     print(f"Best Validation Loss: {best_loss:.4f}")
 
-    test_loss, test_acc, test_auc, test_pred, test_target= test_epoch(
+    test_loss, test_acc, test_auc, test_pred, test_target = test_epoch(
         epoch,
         model,
         dataloader=test_dataloader,

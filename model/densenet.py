@@ -20,6 +20,9 @@ def densenet121(pretrained=False, **kwargs):
     """
     model = DenseNet(num_init_features=64, growth_rate=32, block_config=(6, 12, 24, 16),
                      **kwargs)
+
+    # model = DenseNet(num_init_features=32, growth_rate=64, block_config=(6, 12, 24, 16),
+    #                  **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['densenet121']))
     return model
@@ -41,7 +44,8 @@ class _DenseLayer(nn.Sequential):
     def forward(self, x):
         new_features = super(_DenseLayer, self).forward(x)
         if self.drop_rate > 0:
-            new_features = F.dropout(new_features, p=self.drop_rate, training=self.training)
+            new_features = F.dropout(
+                new_features, p=self.drop_rate, training=self.training)
         return torch.cat([x, new_features], 1)
 
 
@@ -49,7 +53,8 @@ class _DenseBlock(nn.Sequential):
     def __init__(self, num_layers, num_input_features, bn_size, growth_rate, drop_rate):
         super(_DenseBlock, self).__init__()
         for i in range(num_layers):
-            layer = _DenseLayer(num_input_features + i * growth_rate, growth_rate, bn_size, drop_rate)
+            layer = _DenseLayer(num_input_features + i *
+                                growth_rate, growth_rate, bn_size, drop_rate)
             self.add_module('denselayer%d' % (i + 1), layer)
 
 
@@ -75,6 +80,7 @@ class DenseNet(nn.Module):
         drop_rate (float) - dropout rate after each dense layer
         num_classes (int) - number of classification classes
     """
+
     def __init__(self, growth_rate=32, block_config=(6, 12, 24, 16),
                  num_init_features=64, bn_size=4, drop_rate=0, num_classes=1000):
 
@@ -82,7 +88,8 @@ class DenseNet(nn.Module):
 
         # First convolution
         self.features = nn.Sequential(OrderedDict([
-            ('conv0', nn.Conv2d(3, num_init_features, kernel_size=7, stride=2, padding=3, bias=False)),
+            ('conv0', nn.Conv2d(3, num_init_features,
+             kernel_size=7, stride=2, padding=3, bias=False)),
             ('norm0', nn.BatchNorm2d(num_init_features)),
             ('relu0', nn.ReLU(inplace=True)),
             ('pool0', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
@@ -96,7 +103,8 @@ class DenseNet(nn.Module):
             self.features.add_module('denseblock%d' % (i + 1), block)
             num_features = num_features + num_layers * growth_rate
             if i != len(block_config) - 1:
-                trans = _Transition(num_input_features=num_features, num_output_features=num_features // 2)
+                trans = _Transition(
+                    num_input_features=num_features, num_output_features=num_features // 2)
                 self.features.add_module('transition%d' % (i + 1), trans)
                 num_features = num_features // 2
 
@@ -114,4 +122,3 @@ class DenseNet(nn.Module):
         out = self.gap(out).view(features.size(0), -1)
         out = self.classifier(out)
         return out
-

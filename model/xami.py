@@ -151,3 +151,9 @@ class XAMIMultiModal(nn.Module):
 
         decision_out = self.decision_net(fused_representation)
         return decision_out
+
+    def num_all_params(self,) -> int:
+        '''
+        return how many parameters in the model
+        '''
+        return sum([param.nelement() for param in self.parameters()])
