@@ -8,6 +8,11 @@ from sklearn.preprocessing import LabelEncoder
 from PIL import Image
 from torch.autograd import Variable
 
+a = [
+
+
+]
+
 
 class REFLACXWithClinicalDataset(data.Dataset):
     def __init__(self,
@@ -17,16 +22,26 @@ class REFLACXWithClinicalDataset(data.Dataset):
                  clinical_numerical_cols=[
                      'age', 'temperature', 'heartrate', 'resprate', 'o2sat', 'sbp', 'dbp', 'pain', 'acuity'],
                  clinical_categorical_cols=['gender'],
+                 #      labels_cols=[
+                 # 'Airway wall thickening', 'Atelectasis', 'Consolidation',
+                 # 'Enlarged cardiac silhouette', 'Fibrosis',
+                 # 'Groundglass opacity', 'Pneumothorax', 'Pulmonary edema',
+                 # 'Quality issue', 'Support devices', 'Wide mediastinum',
+                 # 'Abnormal mediastinal contour', 'Acute fracture', 'Enlarged hilum',
+                 # 'Hiatal hernia', 'High lung volume / emphysema',
+                 # 'Interstitial lung disease', 'Lung nodule or mass',
+                 # 'Pleural abnormality'
+                 #          ],
+
                  labels_cols=[
-            'Airway wall thickening', 'Atelectasis', 'Consolidation',
-            'Enlarged cardiac silhouette', 'Fibrosis',
-            'Groundglass opacity', 'Pneumothorax', 'Pulmonary edema',
-            'Quality issue', 'Support devices', 'Wide mediastinum',
-            'Abnormal mediastinal contour', 'Acute fracture', 'Enlarged hilum',
-            'Hiatal hernia', 'High lung volume / emphysema',
-            'Interstitial lung disease', 'Lung nodule or mass',
-            'Pleural abnormality'
-                     ],
+                    #  "Support devices",
+                     "Enlarged cardiac silhouette",
+                     "Atelectasis",
+                     "Pleural abnormality",
+                     "Consolidation",
+                     "Pulmonary edema",
+                    #  'Groundglass opacity',
+                 ],
                  all_disease_cols=[
             'Airway wall thickening', 'Atelectasis', 'Consolidation',
             'Enlarged cardiac silhouette', 'Fibrosis',

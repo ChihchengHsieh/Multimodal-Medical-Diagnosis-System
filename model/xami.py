@@ -6,7 +6,8 @@ import torch.nn as nn
 import numpy as np
 
 from torch.autograd import Variable
-from model.densenet import densenet121
+# from model.densenet import densenet121
+from torchvision.models import densenet121
 
 
 class REFLACXClincalNet(nn.Module):
@@ -89,9 +90,9 @@ class ClinicalNet(nn.Module):
 
 
 class ImageDenseNet(nn.Module):
-    def __init__(self, num_output_features):
+    def __init__(self, num_output_features, pretrained=False):
         super(ImageDenseNet, self).__init__()
-        self.model_ft = densenet121(pretrained=False, drop_rate=0)
+        self.model_ft = densenet121(pretrained=pretrained, drop_rate=0)
         num_ftrs = self.model_ft.classifier.in_features
         self.model_ft.classifier = nn.Linear(num_ftrs, num_output_features)
 
@@ -155,6 +156,8 @@ class XAMIMultiModal(nn.Module):
         joint_feature_size=64,
         model_dim=128,
         use_clinical=True,
+        dropout=.1,
+        pretrained=True,
     ) -> None:
         super(XAMIMultiModal, self).__init__()
 
@@ -176,7 +179,7 @@ class XAMIMultiModal(nn.Module):
         # )
 
         self.clinical_net = REFLACXClincalNet(
-            dropout=.1,
+            dropout=dropout,
             dim=model_dim,
             gender_emb_dim=embeding_dim,
             num_numerical_features=len(
@@ -186,13 +189,14 @@ class XAMIMultiModal(nn.Module):
 
         self.image_net = ImageDenseNet(
             num_output_features=joint_feature_size,
+            pretrained=pretrained,
         )
 
         self.fuse_layer = AddFusionLayer()
         self.use_clinical = use_clinical
 
         self.decision_net = DecisionNet(num_input_features=joint_feature_size, num_output_features=len(
-            reflacx_dataset.labels_cols), dim=model_dim)
+            reflacx_dataset.labels_cols), dim=model_dim, dropout=dropout)
 
     def forward(self, image, clincal_data):
         image_out = self.image_net(image)
