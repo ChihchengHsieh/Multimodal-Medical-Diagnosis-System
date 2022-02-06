@@ -163,6 +163,8 @@ class XAMIMultiModal(nn.Module):
 
         self.device = device
 
+        self.model_dim = model_dim
+
         categorical_unique_map = {}
         for col in reflacx_dataset.clinical_categorical_cols:
             categorical_unique_map[col] = torch.tensor(
@@ -178,22 +180,25 @@ class XAMIMultiModal(nn.Module):
         #     categorical_unique_map=categorical_unique_map
         # )
 
-        self.clinical_net = REFLACXClincalNet(
-            dropout=dropout,
-            dim=model_dim,
-            gender_emb_dim=embeding_dim,
-            num_numerical_features=len(
-                reflacx_dataset.clinical_numerical_cols),
-            output_dim=joint_feature_size,
-        )
+
 
         self.image_net = ImageDenseNet(
             num_output_features=joint_feature_size,
             pretrained=pretrained,
         )
 
-        self.fuse_layer = AddFusionLayer()
         self.use_clinical = use_clinical
+
+        if self.use_clinical:
+            self.fuse_layer = AddFusionLayer()
+            self.clinical_net = REFLACXClincalNet(
+                dropout=dropout,
+                dim=model_dim,
+                gender_emb_dim=embeding_dim,
+                num_numerical_features=len(
+                    reflacx_dataset.clinical_numerical_cols),
+                output_dim=joint_feature_size,
+            )
 
         self.decision_net = DecisionNet(num_input_features=joint_feature_size, num_output_features=len(
             reflacx_dataset.labels_cols), dim=model_dim, dropout=dropout)

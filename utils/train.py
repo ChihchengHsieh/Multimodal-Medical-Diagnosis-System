@@ -368,117 +368,6 @@ def train(
     return train_data, val_data
 
 
-def train_with_auc(
-        num_epochs,
-        model,
-        dataset,
-        dataloaders,
-        device,
-        using_scheduler=False,
-        lr=0.0001,
-        early_stop_count=3
-):
-    best_model_wts, best_loss = model.state_dict(), float("inf")
-    counter = 0
-
-    plt.ion()
-
-    train_data = []
-    val_data = []
-
-    train_dataloader, val_dataloader, test_dataloader = dataloaders
-
-    # for every disease, we get the new loss function
-
-    imratio_list = [dataset.df[col].sum() / len(dataset)
-                    for col in dataset.labels_cols]
-
-    loss_fn = AUCM_MultiLabel(imratio=imratio_list,
-                              num_classes=len(dataset.labels_cols))
-
-    optimizer = PESG(model,
-                     a=loss_fn.a,
-                     b=loss_fn.b,
-                     alpha=loss_fn.alpha,
-                     #  lr=.05,
-                     lr=lr,
-                     gamma=500,
-                     margin=1,
-                     weight_decay=1e-5, device=device)
-
-    for epoch in range(1, num_epochs + 1):
-        print("Epoch {}/{}".format(epoch, num_epochs))
-        print("-" * 10)
-
-        if using_scheduler and epoch > 1:
-            optimizer.update_regularizer(decay_factor=10)
-
-        train_loss, train_acc, train_auc, train_pred, train_target = train_epoch(epoch, model, dataloader=train_dataloader,
-                                                                                 loss_fn=loss_fn, optimizer=optimizer, device=device)
-
-        train_data.append(
-            {
-                "loss": train_loss,
-                "acc": train_acc,
-                "auc": train_auc
-            }
-        )
-
-        val_loss, val_acc, val_auc, val_pred, val_target = test_epoch(epoch, model,
-                                                                      dataloader=val_dataloader, loss_fn=loss_fn, device=device)
-
-        val_data.append(
-            {
-                "loss": val_loss,
-                "acc": val_acc,
-                "auc": val_auc
-            }
-        )
-
-        if (val_loss < best_loss):
-            best_loss = val_loss
-            best_model_wts = model.state_dict()
-            counter = 0
-
-        else:
-            counter += 1
-
-        if not (early_stop_count is None) and counter > early_stop_count:
-            break
-
-        # plot the training process
-        # plot_training(train_data, val_data)
-        plot_training_v3(epoch, train_data, val_data)
-
-        print(f"Current learning rate is {optimizer.param_groups[0]['lr']}")
-
-        print("================Training CM================")
-        print_confusion_matrix(train_pred, train_target, dataset.labels_cols)
-        print("================Validation CM================")
-        print_confusion_matrix(val_pred, val_target, dataset.labels_cols)
-
-    print(f"Best Validation Loss: {best_loss:.4f}")
-
-    test_loss, test_acc, test_auc, test_pred, test_target = test_epoch(
-        epoch,
-        model,
-        dataloader=test_dataloader,
-        loss_fn=loss_fn,
-        device=device,
-    )
-
-    print("================Test CM================")
-    print_confusion_matrix(test_pred, test_target, dataset.labels_cols)
-
-    print(
-        f"Training Done | TEST LOSS {test_loss:.4f} | TEST ACC {test_acc:.4f} | TEST AUC {test_auc:.4f}")
-
-    torch.save(best_model_wts, os.path.join("saved_models",
-                                            f"{test_auc:.4f}_{str(datetime.now())}".replace(":", "_")))
-
-    return train_data, val_data
-
-
 # 1. add the pretrain function.
 # 2. rebuild the train function for auc.
 
@@ -525,6 +414,8 @@ def train_with_auc_margin_loss(
 
     batch_count = 0
     best_model_name = None
+
+    clinial_cond = "With" if model.use_clinical else "Without"
 
     for epoch in range(1, num_epochs+1):
 
@@ -590,11 +481,10 @@ def train_with_auc_margin_loss(
             # update best AUC.
             best_val_auc = val_auc
 
-            # Save the model.
-            'aucm_multi_label_pretrained_model.pth'
 
-            best_model_name = f"{val_auc:.4f}_{str(datetime.now())}".replace(
-                ":", "_")
+            # Save the model.
+            best_model_name = f"val_{val_auc:.4f}_epoch{epoch}_{clinial_cond}Clincal_dim{model.model_dim}_{str(datetime.now())}".replace(
+                ":", "_").replace(".", "_")
 
             torch.save(
                 model.state_dict(),
@@ -610,6 +500,7 @@ def train_with_auc_margin_loss(
             title="Current Learning Rate",
         )
 
+        print_block(f"LOSS {train_loss:.4f} | ACC {train_acc:.4f} | AUC {train_auc: .4f}", title="Training Result")
         print_block("Training Confusion Matrix")
         print_confusion_matrix(
             train_pred,
@@ -617,6 +508,7 @@ def train_with_auc_margin_loss(
             dataset.labels_cols
         )
 
+        print_block(f"LOSS {val_loss:.4f} | ACC {val_acc:.4f} | AUC {val_auc: .4f}", title="Validation Result")
         print_block("Validation Confusion Matrix")
         print_confusion_matrix(
             val_pred,
@@ -642,10 +534,18 @@ def train_with_auc_margin_loss(
     print(
         f"Training Done | TEST LOSS {test_loss:.4f} | TEST ACC {test_acc:.4f} | TEST AUC {test_auc:.4f}")
 
+    final_model_path =  f"test_{test_auc:.4f}_epoch{epoch}_{clinial_cond}Clincal_dim{model.model_dim}_{str(datetime.now())}".replace(":", "_").replace(".", "_")
+
+    torch.save(
+                model.state_dict(),
+                os.path.join('saved_models',final_model_path) ,
+            )
+
     print_block(best_model_name, title="Best Model")
 
-    return 
+    print_block(final_model_path, "Test Model")
 
+    return (train_pred, train_target), (val_pred, val_target), (test_pred, test_target)
 
 def train_epoch_auc(
         epoch,

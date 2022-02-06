@@ -8,12 +8,6 @@ from sklearn.preprocessing import LabelEncoder
 from PIL import Image
 from torch.autograd import Variable
 
-a = [
-
-
-]
-
-
 class REFLACXWithClinicalDataset(data.Dataset):
     def __init__(self,
                  image_size=224,
@@ -70,7 +64,7 @@ class REFLACXWithClinicalDataset(data.Dataset):
             transforms.Resize((self.image_size, self.image_size)),
             transforms.RandomHorizontalFlip() if horizontal_flip else None,
             transforms.ToTensor(),
-            # normalize,
+            normalize,
         ]
         self.train_transform = transforms.Compose(
             [t for t in train_transforms_lst if t])
@@ -78,7 +72,7 @@ class REFLACXWithClinicalDataset(data.Dataset):
         self.test_transform = transforms.Compose([
             transforms.Resize((self.image_size, self.image_size)),
             transforms.ToTensor(),
-            # normalize,
+            normalize,
         ])
 
         self.preprocess_clinical_df()
