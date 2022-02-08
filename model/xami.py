@@ -1,6 +1,7 @@
 # design the Fully Connected layer to process
 from collections import OrderedDict
 from msilib.schema import Error
+from turtle import forward
 import torch
 import torch.nn as nn
 import numpy as np
@@ -147,6 +148,14 @@ class AddFusionLayer(nn.Module):
         return x+y
 
 
+class ConcateFusionLayer(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, x, y):
+        return torch.cat((x, y), dim=-1)
+
+
 class XAMIMultiModal(nn.Module):
     def __init__(
         self,
@@ -180,8 +189,6 @@ class XAMIMultiModal(nn.Module):
         #     categorical_unique_map=categorical_unique_map
         # )
 
-
-
         self.image_net = ImageDenseNet(
             num_output_features=joint_feature_size,
             pretrained=pretrained,
@@ -208,6 +215,86 @@ class XAMIMultiModal(nn.Module):
 
         if self.use_clinical:
             clinical_out = self.clinical_net(clincal_data)
+            fused_representation = self.fuse_layer(clinical_out, image_out)
+        else:
+            fused_representation = image_out
+
+        decision_out = self.decision_net(fused_representation)
+        return decision_out
+
+    def num_all_params(self,) -> int:
+        '''
+        return how many parameters in the model
+        '''
+        return sum([param.nelement() for param in self.parameters()])
+
+
+class XAMIMultiCocatModal(nn.Module):
+    def __init__(
+        self,
+        reflacx_dataset,
+        device,
+        embeding_dim=64,
+        joint_feature_size=64,
+        model_dim=128,
+        use_clinical=True,
+        dropout=.1,
+        pretrained=True,
+        detach_image=False,
+    ) -> None:
+        super(XAMIMultiCocatModal, self).__init__()
+
+        self.device = device
+
+        self.model_dim = model_dim
+
+        categorical_unique_map = {}
+
+        for col in reflacx_dataset.clinical_categorical_cols:
+            categorical_unique_map[col] = torch.tensor(
+                len(reflacx_dataset.df[col].unique()))
+
+        # self.clinical_net = ClinicalNet(
+        #     num_output_features=joint_feature_size,
+        #     device=self.device,
+        #     dims=[model_dim],
+        #     numerical_cols=reflacx_dataset.clinical_numerical_cols,
+        #     categorical_cols=reflacx_dataset.clinical_categorical_cols,
+        #     embedding_dim_maps=ohe_dim_map,  # define embedding dim here.
+        #     categorical_unique_map=categorical_unique_map
+        # )
+
+        self.image_net = ImageDenseNet(
+            num_output_features=joint_feature_size,
+            pretrained=pretrained,
+        )
+
+        self.use_clinical = use_clinical
+
+        if self.use_clinical:
+            self.fuse_layer = ConcateFusionLayer()
+            self.clinical_net = REFLACXClincalNet(
+                dropout=dropout,
+                dim=model_dim,
+                gender_emb_dim=embeding_dim,
+                num_numerical_features=len(
+                    reflacx_dataset.clinical_numerical_cols),
+                output_dim=joint_feature_size,
+            )
+        self.detach_image = detach_image
+
+        self.decision_net = DecisionNet(num_input_features=joint_feature_size*2 if self.use_clinical else joint_feature_size, num_output_features=len(
+            reflacx_dataset.labels_cols), dim=model_dim, dropout=dropout)
+
+    def forward(self, image, clincal_data):
+        image_out = self.image_net(image)
+
+        if self.detach_image:
+            image_out = image_out.detach()
+
+        if self.use_clinical:
+            clinical_out = self.clinical_net(clincal_data)
+
             fused_representation = self.fuse_layer(clinical_out, image_out)
         else:
             fused_representation = image_out

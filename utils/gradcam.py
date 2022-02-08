@@ -7,6 +7,7 @@ from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 
 import torch
+import torch.nn as nn
 import pandas as pd
 import numpy as np
 
@@ -25,6 +26,9 @@ def get_clinical_data(dataset, df, device):
 
 
 def get_df_label_pred_img_input(model, dataset, idx, device):
+
+    model.eval()
+
     df = pd.DataFrame([dataset.__getitem__(idx)]).reset_index()
 
     labels_df = df[dataset.labels_cols]
@@ -46,7 +50,14 @@ def get_df_label_pred_img_input(model, dataset, idx, device):
 
 def show_gradCAMpp_result(dataset, model, desire_label_name, img, model_input, use_full_features=True ):
 
+    model.eval()
+
     (tensor_img, clinical_data) = model_input
+
+
+    model.decision_net.net[-1] = nn.Identity()
+
+    # replace the last one with identity
 
     wrapped_model = GradCAMWrapper(
         labels=dataset.labels_cols,
@@ -56,9 +67,14 @@ def show_gradCAMpp_result(dataset, model, desire_label_name, img, model_input, u
     )
 
     if use_full_features:
-        target_layer = wrapped_model.model.image_net.model_ft.features
+        # target_layer = wrapped_model.model.image_net.model_ft.features
+        target_layer = wrapped_model.model.image_net.model_ft.features[-1]
     else:
         target_layer = wrapped_model.model.image_net.model_ft.features.denseblock4.denselayer16.conv2
+        # target_layer = wrapped_model.model.image_net.model_ft.features[-1]
+        # target_layer = wrapped_model.model.decision_net.net[0]
+        # target_layer = wrapped_model.model.image_net.model_ft.features.norm5
+        # target_layer = wrapped_model.model.image_net.model_ft.features.denseblock4.denselayer16.norm2
 
     gardcam_pp = GradCAMPlusPlus(model= wrapped_model, target_layers=[target_layer], use_cuda=True)
 
@@ -69,5 +85,7 @@ def show_gradCAMpp_result(dataset, model, desire_label_name, img, model_input, u
     image_float_np = np.float32(TransformFuncs.display_transform(img)) / 255
 
     cam_img = show_cam_on_image(image_float_np , grayscale_cam[0, :], use_rgb=True)
+
+    model.decision_net.net[-1] = nn.Sigmoid()
 
     return Image.fromarray(cam_img)

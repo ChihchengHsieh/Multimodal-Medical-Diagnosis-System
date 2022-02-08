@@ -1,6 +1,7 @@
 from logging import exception
 import os
 import sys
+from tracemalloc import stop
 import torch
 import numpy as np
 import pandas as pd
@@ -384,6 +385,7 @@ def train_with_auc_margin_loss(
     weight_decay=1e-5,
     margin=1.0,
     lr=0.1,
+    model_note="",
 ):
 
     train_dataloader, val_dataloader, test_dataloader = dataloaders
@@ -483,7 +485,7 @@ def train_with_auc_margin_loss(
 
 
             # Save the model.
-            best_model_name = f"val_{val_auc:.4f}_epoch{epoch}_{clinial_cond}Clincal_dim{model.model_dim}_{str(datetime.now())}".replace(
+            best_model_name = f"val_{val_auc:.4f}_{model_note}_epoch{epoch}_{clinial_cond}Clincal_dim{model.model_dim}_{str(datetime.now())}".replace(
                 ":", "_").replace(".", "_")
 
             torch.save(
@@ -529,12 +531,12 @@ def train_with_auc_margin_loss(
     )
 
     print_block("Testing Confusion Matrix")
+
     print_confusion_matrix(test_pred, test_target, dataset.labels_cols)
 
-    print(
-        f"Training Done | TEST LOSS {test_loss:.4f} | TEST ACC {test_acc:.4f} | TEST AUC {test_auc:.4f}")
+    print_block(f"LOSS {test_loss:.4f} | ACC {test_acc:.4f} | AUC {test_auc: .4f}", title="Training Done - Test Result")
 
-    final_model_path =  f"test_{test_auc:.4f}_epoch{epoch}_{clinial_cond}Clincal_dim{model.model_dim}_{str(datetime.now())}".replace(":", "_").replace(".", "_")
+    final_model_path =  f"test_{test_auc:.4f}_{model_note}_epoch{epoch}_{clinial_cond}Clincal_dim{model.model_dim}_{str(datetime.now())}".replace(":", "_").replace(".", "_")
 
     torch.save(
                 model.state_dict(),
@@ -545,7 +547,7 @@ def train_with_auc_margin_loss(
 
     print_block(final_model_path, "Test Model")
 
-    return (train_pred, train_target), (val_pred, val_target), (test_pred, test_target)
+    return (train_pred, train_target), (val_pred, val_target), (test_pred, test_target), (best_model_name, final_model_path)
 
 def train_epoch_auc(
         epoch,
@@ -556,7 +558,7 @@ def train_epoch_auc(
         loss_fn,
         optimizer,
         scheduler_freq=200,
-        scheduler_factor=.5
+        scheduler_factor=.5,
 ):
     model.train()
     model.to(device)
@@ -574,6 +576,7 @@ def train_epoch_auc(
         loss = loss_fn(y_pred, label)
         optimizer.zero_grad()
         loss.backward()
+
         optimizer.step()
 
         if (not scheduler_freq is None) and batch_count % scheduler_freq == 0:
