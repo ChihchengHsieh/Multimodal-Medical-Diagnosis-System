@@ -10,7 +10,6 @@ from torch.autograd import Variable
 # from model.densenet import densenet121
 from torchvision.models import densenet121
 
-
 class REFLACXClincalNet(nn.Module):
 
     def __init__(self, num_numerical_features, output_dim, gender_emb_dim=64, dim=64, dropout=.1, ) -> None:
@@ -238,6 +237,7 @@ class XAMIMultiCocatModal(nn.Module):
         joint_feature_size=64,
         model_dim=128,
         use_clinical=True,
+        use_image=True,
         dropout=.1,
         pretrained=True,
         detach_image=False,
@@ -264,13 +264,17 @@ class XAMIMultiCocatModal(nn.Module):
         #     categorical_unique_map=categorical_unique_map
         # )
 
-        self.image_net = ImageDenseNet(
-            num_output_features=joint_feature_size,
-            pretrained=pretrained,
-        )
+        decision_input_size = 0
+
+        self.use_image = use_image
+        if use_image:
+            self.image_net = ImageDenseNet(
+                num_output_features=joint_feature_size,
+                pretrained=pretrained,
+            )
+            decision_input_size += joint_feature_size
 
         self.use_clinical = use_clinical
-
         if self.use_clinical:
             self.fuse_layer = ConcateFusionLayer()
             self.clinical_net = REFLACXClincalNet(
@@ -281,23 +285,31 @@ class XAMIMultiCocatModal(nn.Module):
                     reflacx_dataset.clinical_numerical_cols),
                 output_dim=joint_feature_size,
             )
-        self.detach_image = detach_image
+            decision_input_size += joint_feature_size
 
-        self.decision_net = DecisionNet(num_input_features=joint_feature_size*2 if self.use_clinical else joint_feature_size, num_output_features=len(
+
+        self.detach_image = detach_image
+        self.decision_net = DecisionNet(num_input_features=decision_input_size, num_output_features=len(
             reflacx_dataset.labels_cols), dim=model_dim, dropout=dropout)
 
     def forward(self, image, clincal_data):
-        image_out = self.image_net(image)
 
-        if self.detach_image:
-            image_out = image_out.detach()
-
-        if self.use_clinical:
+        if (self.use_clinical and self.use_image):
             clinical_out = self.clinical_net(clincal_data)
+            image_out = self.image_net(image)
+
+            if self.detach_image:
+                image_out = image_out.detach()
 
             fused_representation = self.fuse_layer(clinical_out, image_out)
-        else:
+        elif self.use_image:
+            image_out = self.image_net(image)
             fused_representation = image_out
+        elif self.use_clinical:
+            clinical_out = self.clinical_net(clincal_data)
+            fused_representation = clinical_out
+        else:
+            raise Error("Not modality is included.")
 
         decision_out = self.decision_net(fused_representation)
         return decision_out
