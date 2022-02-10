@@ -1,3 +1,5 @@
+from matplotlib.patches import Ellipse
+
 def relabel_ellipse_df(ellipse_df, label_maps={
     'Airway wall thickening': ['Airway wall thickening'],
     'Atelectasis': ['Atelectasis'],
@@ -28,3 +30,19 @@ def relabel_ellipse_df(ellipse_df, label_maps={
         relabeled_ellipses_df[k] = ellipse_df[[l for l in label_maps[k] if l in ellipse_df.columns]].any(axis=1)
     
     return relabeled_ellipses_df
+
+
+def get_ellipses_patch(relabeled_ellipse_df, d, image_size_x, image_size_y, model_input_image_size):
+    ellipses = []
+
+    for _, instance in relabeled_ellipse_df[relabeled_ellipse_df[d]].iterrows():
+        center_x = (instance['xmin'] + instance['xmax']) / 2
+        center_y = (instance['ymin'] + instance['ymax']) / 2
+        width = abs(instance['xmax'] - instance['xmin'])
+        height = abs(instance['ymax'] - instance['ymin'])
+        x_ratio = model_input_image_size / image_size_x
+        y_ratio = model_input_image_size / image_size_y
+
+        ellipses.append(Ellipse((center_x * x_ratio, center_y * y_ratio), width=width*x_ratio, height=height*y_ratio, edgecolor="red",facecolor="none", linewidth=2))
+
+    return ellipses
