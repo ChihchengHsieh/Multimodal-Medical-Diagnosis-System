@@ -1,4 +1,5 @@
 import torchvision.transforms as transforms
+from torch.autograd import Variable
 
 class TransformFuncs:
     
@@ -18,3 +19,32 @@ class TransformFuncs:
     ]
 
     display_transform = transforms.Compose(display_transform_list)
+
+
+def transform_data(data, device):
+    image, clinical_data, label = data
+    image = image.to(device)
+    label = label.to(device)
+    clinical_numerical_data, clinical_categorical_data = clinical_data
+    clinical_numerical_data = clinical_numerical_data.to(device)
+
+    for col in clinical_categorical_data.keys():
+        clinical_categorical_data[col] = clinical_categorical_data[col].to(
+            device)
+
+    clinical_data = (clinical_numerical_data, clinical_categorical_data)
+
+    image = Variable(image, requires_grad=False)
+    label = Variable(label, requires_grad=False)
+
+    clinical_numerical_data, clinical_categorical_data = clinical_data
+    clinical_numerical_data = Variable(
+        clinical_numerical_data, requires_grad=False)
+
+    for col in clinical_categorical_data.keys():
+        clinical_categorical_data[col] = Variable(
+            clinical_categorical_data[col], requires_grad=False)
+
+    clinical_data = (clinical_numerical_data, clinical_categorical_data)
+
+    return image, clinical_data, label

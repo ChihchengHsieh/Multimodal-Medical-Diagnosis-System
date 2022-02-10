@@ -11,6 +11,8 @@ import torch.nn as nn
 import pandas as pd
 import numpy as np
 
+from utils.train import transform_data
+
 def get_clinical_data(dataset, df, device):
 
     clinical_numerical_input = torch.tensor(
@@ -40,9 +42,42 @@ def get_df_label_pred_img_input(model, dataset, idx, device):
     clinical_data = get_clinical_data(dataset, df, device)
 
     ## get prediction here as well.
+
     pred_df = pd.DataFrame(model(tensor_img, clinical_data).detach().cpu().numpy(), columns=dataset.labels_cols)
 
     return df, labels_df, pred_df, img, (tensor_img, clinical_data)
+
+
+def get_df_label_pred_img_input_loss(model, loss_fn, dataset, idx, device):
+
+    model.eval()
+
+    data = dataset.__getitem__(idx)
+
+    input_data = dataset.collate_fn([data])
+
+    image_array, clinical_data, label = transform_data(input_data, device)
+
+
+    df = pd.DataFrame([data]).reset_index()
+
+    labels_df = df[dataset.labels_cols]
+
+    img = Image.open(df['image_path'][0]).convert("RGB")
+
+    image_array = TransformFuncs.tensor_norm_transform(img).to(device).unsqueeze(0)
+
+    # clinical_data = get_clinical_data(dataset, df, device)
+
+    ## get prediction here as well.
+
+    output= model(image_array, clinical_data)
+
+    loss = loss_fn(output, label)
+
+    pred_df = pd.DataFrame(output.detach().cpu().numpy(), columns=dataset.labels_cols)
+
+    return df, labels_df, pred_df, img, loss.item(), (image_array, clinical_data)
     
     
 
@@ -53,7 +88,6 @@ def show_gradCAMpp_result(dataset, model, desire_label_name, img, model_input, u
     model.eval()
 
     (tensor_img, clinical_data) = model_input
-
 
     model.decision_net.net[-1] = nn.Identity()
 
