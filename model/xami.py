@@ -155,7 +155,7 @@ class ConcateFusionLayer(nn.Module):
         return torch.cat((x, y), dim=-1)
 
 
-class XAMIMultiModal(nn.Module):
+class XAMIMultiModalSum(nn.Module):
     def __init__(
         self,
         reflacx_dataset,
@@ -167,7 +167,7 @@ class XAMIMultiModal(nn.Module):
         dropout=.1,
         pretrained=True,
     ) -> None:
-        super(XAMIMultiModal, self).__init__()
+        super(XAMIMultiModalSum, self).__init__()
 
         self.device = device
 

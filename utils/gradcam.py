@@ -29,6 +29,8 @@ def get_clinical_data(dataset, df, device):
 
 def get_df_label_pred_img_input(model, dataset, idx, device):
 
+    transform_func = TransformFuncs(image_size= dataset.image_size)
+
     model.eval()
 
     df = pd.DataFrame([dataset.__getitem__(idx)]).reset_index()
@@ -37,7 +39,7 @@ def get_df_label_pred_img_input(model, dataset, idx, device):
 
     img = Image.open(df['image_path'][0]).convert("RGB")
 
-    tensor_img = TransformFuncs.tensor_norm_transform(img).to(device).unsqueeze(0)
+    tensor_img = transform_func.tensor_norm_transform(img).to(device).unsqueeze(0)
 
     clinical_data = get_clinical_data(dataset, df, device)
 
@@ -49,6 +51,8 @@ def get_df_label_pred_img_input(model, dataset, idx, device):
 
 
 def get_df_label_pred_img_input_loss(model, loss_fn, dataset, idx, device):
+
+    transform_func = TransformFuncs(image_size= dataset.image_size)
 
     model.eval()
 
@@ -65,7 +69,7 @@ def get_df_label_pred_img_input_loss(model, loss_fn, dataset, idx, device):
 
     img = Image.open(df['image_path'][0]).convert("RGB")
 
-    image_array = TransformFuncs.tensor_norm_transform(img).to(device).unsqueeze(0)
+    image_array = transform_func.tensor_norm_transform(img).to(device).unsqueeze(0)
 
     # clinical_data = get_clinical_data(dataset, df, device)
 
@@ -84,6 +88,8 @@ def get_df_label_pred_img_input_loss(model, loss_fn, dataset, idx, device):
 
 
 def show_gradCAMpp_result(dataset, model, desire_label_name, img, model_input, use_full_features=True ):
+
+    transform_func = TransformFuncs(image_size= dataset.image_size)
 
     model.eval()
 
@@ -116,7 +122,7 @@ def show_gradCAMpp_result(dataset, model, desire_label_name, img, model_input, u
 
     grayscale_cam = gardcam_pp(input_tensor=tensor_img, targets=targets)
 
-    image_float_np = np.float32(TransformFuncs.display_transform(img)) / 255
+    image_float_np = np.float32(transform_func.display_transform(img)) / 255
 
     cam_img = show_cam_on_image(image_float_np , grayscale_cam[0, :], use_rgb=True)
 

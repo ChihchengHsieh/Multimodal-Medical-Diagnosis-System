@@ -1,31 +1,22 @@
-from logging import exception
 import os
 import sys
-from tracemalloc import stop
 import torch
 import numpy as np
 import pandas as pd
 import torch.nn as nn
-import seaborn as sn
 
 import matplotlib.pyplot as plt
 
 from datetime import datetime
-from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from IPython.display import clear_output
-from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
-
-from model.xami import REFLACXClincalNet
+from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix
 
 from libauc.losses import AUCM_MultiLabel
 from libauc.optimizers import PESG
 
-from utils.print import print_block, print_peforming_task, print_taks_done
+from utils.print import print_block
 from utils.transform import transform_data
-
-class RecordUnit:
-    pass
 
 
 def split_dataset(dataset,  batch_size, traing_portion=.8, test_portion=.1, seed=123):
@@ -68,8 +59,6 @@ def split_dataset(dataset,  batch_size, traing_portion=.8, test_portion=.1, seed
     return train_dataloader, val_dataloader, test_dataloader
 
 
-# implement test 1 epoch here
-
 def get_loss(dataset, weighted, device):
 
     def loss(preds, target):
@@ -83,91 +72,7 @@ def get_loss(dataset, weighted, device):
     return loss
 
 
-def plot_training(train_data, val_data):
-    fig = plt.figure(figsize=(30, 10), dpi=80)
-
-    if not plt.fignum_exists(fig.number):
-        plt.show()
-
-    plt.subplot().cla()
-
-    plt.subplot(311)
-    plt.plot([t['loss'] for t in train_data],
-             marker='o', label='Training loss')
-    plt.plot([v['loss'] for v in val_data],
-             marker='o', label='Validation loss')
-    plt.ylabel('Loss', fontsize=8)
-    plt.xlabel('Epoch')
-    plt.legend(loc='upper left')
-    plt.draw()
-    plt.pause(0.001)
-
-    plt.subplot(312)
-    plt.plot([t['acc'] for t in train_data],
-             marker='o', label='Training Accuracy')
-    plt.plot([v['acc'] for v in val_data],
-             marker='o', label='Validation Accuracy')
-    plt.ylabel('Accuracy', fontsize=8)
-    plt.xlabel('Epoch')
-    plt.legend(loc='upper left')
-    plt.draw()
-    plt.pause(0.001)
-
-    plt.subplot(313)
-    plt.plot([t['auc'] for t in train_data], marker='o', label='Training AUC')
-    plt.plot([v['auc'] for v in val_data],
-             marker='o', label='Validation AUC')
-    plt.ylabel('AUC', fontsize=8)
-    plt.xlabel('Epoch')
-    plt.legend(loc='upper left')
-    plt.draw()
-    plt.pause(0.001)
-
-
-def plot_training_v2(epoch, fig, subplots, train_data, val_data):
-    (loss_sub, acc_sub, auc_sub) = subplots
-
-    # loss_sub = fig.add_subplot(3,1,1)
-    # acc_sub = fig.add_subplot(3,1,2)
-    # auc_sub = fig.add_subplot(3,1,3)
-
-    if not plt.fignum_exists(fig.number):
-        plt.show()
-
-    loss_sub.cla()
-    acc_sub.cla()
-    auc_sub.cla()
-
-    fig.suptitle(f'Epoch {epoch}')
-
-    loss_sub.set_title("LOSS")
-    loss_sub.plot([t['loss'] for t in train_data],
-                  marker='o', label='Training loss', color='steelblue')
-    loss_sub.plot([v['loss'] for v in val_data],
-                  marker='o', label='Validation loss', color='darkorange')
-
-    loss_sub.legend(loc="upper left")
-
-    acc_sub.set_title("Accuracy")
-    acc_sub.plot([t['acc'] for t in train_data],
-                 marker='o', label='Training Accuracy', color='steelblue')
-    acc_sub.plot([v['acc'] for v in val_data],
-                 marker='o', label='Validation Accuracy', color='steelblue')
-    acc_sub.legend(loc="upper left")
-
-    auc_sub.set_title("AUC")
-    auc_sub.plot([t['auc'] for t in train_data],
-                 marker='o', label='Training AUC')
-    auc_sub.plot([v['auc'] for v in val_data],
-                 marker='o', label='Validation AUC')
-    auc_sub.set_xlabel('Epoch')
-    auc_sub.legend(loc='upper left')
-
-    plt.draw()
-    plt.pause(0.001)
-
-
-def plot_training_v3(epoch, train_data, val_data):
+def plot_training(epoch, train_data, val_data):
 
     clear_output(wait=True)
 
@@ -214,38 +119,15 @@ def print_confusion_matrix(pred, target, label_cols):
     for idx, col in enumerate(label_cols):
         print_block(col)
 
-        # columns = []
-        # indexes = []
-
-        # # we do false first
-        # if (~(np.array(pred)[:, idx] > 0.5).astype(bool)).any():
-        #     columns.append("Pred_False")
-
-        # if (np.array(pred)[:, idx] > 0.5).astype(bool).any():
-        #     columns.append("Pred_True")
-
-        # if (~(np.array(target)[:, idx]).astype(bool)).any():
-        #     indexes.append("Target_False")
-
-        # if (np.array(target)[:, idx]).astype(bool).any():
-        #     indexes.append("Target_True")
-
-        # if len(columns) >= 2 or len(indexes) >= 2:
-
         columns = ['Pred_False', 'Pred_True']
         indexes = ['Target_False', 'Target_True']
-
-        RecordUnit.pred = pred
-        RecordUnit.target = target
-        RecordUnit.cms = cms
-        RecordUnit.label_cols = label_cols
 
         df_cm = pd.DataFrame(cms[col], columns=columns, index=indexes)
         print(df_cm)
         print("="*40)
 
 
-def train(
+def train_with_chexnext(
         num_epochs,
         model,
         dataset,
@@ -271,7 +153,7 @@ def train(
     for epoch in range(1, num_epochs + 1):
         print_block(f"Epoch: {epoch}/{num_epochs}")
 
-        train_loss, train_acc, train_auc, train_pred, train_target = train_epoch(epoch, model, dataloader=train_dataloader,
+        train_loss, train_acc, train_auc, train_pred, train_target = train_epoch_chexnext(epoch, model, dataloader=train_dataloader,
                                                                                  loss_fn=loss_fn, optimizer=optimizer, device=device)
 
         train_data.append(
@@ -309,7 +191,7 @@ def train(
 
         # plot the training process
         # plot_training(train_data, val_data)
-        plot_training_v3(epoch, train_data, val_data)
+        plot_training(epoch, train_data, val_data)
 
         print(f"Current learning rate is {optimizer.param_groups[0]['lr']}")
 
@@ -342,7 +224,6 @@ def train(
 
 # 1. add the pretrain function.
 # 2. rebuild the train function for auc.
-
 
 def train_with_auc_margin_loss(
     num_epochs,
@@ -465,7 +346,7 @@ def train_with_auc_margin_loss(
             )
 
         # plot loss, accuracy and AUC curves.
-        plot_training_v3(epoch, train_data, val_data)
+        plot_training(epoch, train_data, val_data)
 
         # Log current information.
         print_block(
@@ -578,7 +459,7 @@ def train_epoch_auc(
     return batch_count, train_loss, train_acc, train_auc, batch_pred, batch_target
 
 
-def train_epoch(epoch, model, device, dataloader, loss_fn, optimizer, ):
+def train_epoch_chexnext(epoch, model, device, dataloader, loss_fn, optimizer, ):
     model.train()
     model.to(device)
 
@@ -602,13 +483,6 @@ def train_epoch(epoch, model, device, dataloader, loss_fn, optimizer, ):
         batch_losses.append(loss.item())
         batch_pred.extend(y_pred.detach().cpu().numpy())
         batch_target.extend(label.detach().cpu().numpy())
-        # try:
-        #     auc = roc_auc_score(label.detach().cpu().numpy(
-        #     ).flatten(), outputs.detach().cpu().numpy().flatten())
-        # except ValueError:
-        #     auc = 0
-
-        # batch_auc.append(auc)
 
     train_loss = np.mean(batch_losses)
     train_acc = accuracy_score(

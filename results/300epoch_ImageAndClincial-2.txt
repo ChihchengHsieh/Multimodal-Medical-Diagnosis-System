@@ -1,0 +1,135 @@
+Current learning rate is 0.0001
+================Training CM================
+====================
+Support devices
+====================
+              Pred_False  Pred_True
+Target_False         350          0
+Target_True          121          0
+====================
+====================
+Enlarged cardiac silhouette
+====================
+              Pred_False  Pred_True
+Target_False         302         59
+Target_True           41         69
+====================
+====================
+Atelectasis
+====================
+              Pred_False  Pred_True
+Target_False         308         60
+Target_True           37         66
+====================
+====================
+Pleural abnormality
+====================
+              Pred_False  Pred_True
+Target_False         318         64
+Target_True           27         62
+====================
+====================
+Consolidation
+====================
+              Pred_False  Pred_True
+Target_False         328         66
+Target_True           17         60
+====================
+====================
+Pulmonary edema
+====================
+              Pred_False  Pred_True
+Target_False         320         92
+Target_True           25         34
+====================
+================Validation CM================
+====================
+Support devices
+====================
+              Pred_False  Pred_True
+Target_False          64          0
+Target_True           38          0
+====================
+====================
+Enlarged cardiac silhouette
+====================
+              Pred_False  Pred_True
+Target_False          62         15
+Target_True           17          8
+====================
+====================
+Atelectasis
+====================
+              Pred_False  Pred_True
+Target_False          65         18
+Target_True           14          5
+====================
+====================
+Pleural abnormality
+====================
+              Pred_False  Pred_True
+Target_False          65          8
+Target_True           14         15
+====================
+====================
+Consolidation
+====================
+              Pred_False  Pred_True
+Target_False          70         15
+Target_True            9          8
+====================
+====================
+Pulmonary edema
+====================
+              Pred_False  Pred_True
+Target_False          71         17
+Target_True            8          6
+====================
+Best Validation Loss: 0.2174
+Epoch: 300 Batch:  (0) Test Loss: 0.2187
+Epoch: 300 Batch:  (1) Test Loss: 0.2122
+Epoch 300 | Loss: 0.22 | ACC: 76.57% | AUC: 0.62
+================Test CM================
+====================
+Support devices
+====================
+              Pred_False  Pred_True
+Target_False          69          0
+Target_True           32          0
+====================
+====================
+Enlarged cardiac silhouette
+====================
+              Pred_False  Pred_True
+Target_False          73          7
+Target_True           13          8
+====================
+====================
+Atelectasis
+====================
+              Pred_False  Pred_True
+Target_False          71          8
+Target_True           16          6
+====================
+====================
+Pleural abnormality
+====================
+              Pred_False  Pred_True
+Target_False          73          7
+Target_True           14          7
+====================
+====================
+Consolidation
+====================
+              Pred_False  Pred_True
+Target_False          74          9
+Target_True           13          5
+====================
+====================
+Pulmonary edema
+====================
+              Pred_False  Pred_True
+Target_False          76         13
+Target_True           10          2
+====================
+Training Done | TEST LOSS 0.2155 | TEST ACC 0.7657 | TEST AUC 0.6203
