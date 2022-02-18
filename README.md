@@ -57,7 +57,7 @@ However, there's big update about the `transfer_id` (can be seen as `subject_id`
 Unfortunately, *MIMIC-CXR* and *MIMIC-CXR JPG* hasn't been udpated with the new `transfer_id` (`subject_id`). Therefore, we loss some links between *MIMIC-CXR JPG* and *MIMIC-IV*. The unmatching of the `subject_id` causes a significant decresae of the available dataset size.
 
 
-### 2. REFLACX ellipse lable issues.
+### 2. REFLACX ellipse label issues.
 
 In REFLACX, while the radiologists were diagnosing the CXR images, they are asked to point out certain abnomalities using ellipses. However, they seems changed the available abnoramilties in the middle of the experiment. We found two differernt types of labels among cases. Moreover, some of the lables seems repetitive and should be considered as one. The below chart shows the differences between these two versions and the repetitive lables we found. 
 
@@ -81,8 +81,11 @@ At the right hand side, we have a `FullyConnectedLayers` to process clincal data
 
 (The only cetegorical data we have is `gender`. And, it will be passed into the embedding layer first before passing through the fully connected layers.)
 
+As we have came out a architecture for the model, we can disgin the preporcessing strategy. 
 
-## VI. Fields used.
+## VI. Preprocessing 
+
+## VII. Fields used.
 
 ### We include these id fields
 
