@@ -28,7 +28,7 @@ Before explaining how we joint these datasets and the relationship between them,
 
 1. `subject_id` - It can be considered as patient id (Note: 3. [MIMIC-CXR](https://physionet.org/content/mimic-cxr/2.0.0/) actually call it `patient_id` in the master_sheet, but we will call it `subject_id` in the later sections to prevent confusion.). Every patient has one `subject_id` to represent them in the dataset. All of the 6 datasets we mentioned above in the dataset section have this `subject_id`. 
 
-2. `stay_id` - It represents a specific stay that a patient *stay* in the emergency deparement. This `stay_id` are mainly used to in the [MIMIC-IV ED](https://physionet.org/content/mimic-iv-ed/1.0/) dataste. However, in order to determine the age and health condition (*triage* data table) in the time that the patient took chest x-ray image, we need to identify the `stay_id` for each CXR image as well (It's not provided in [MIMIC-CXR](https://physionet.org/content/mimic-cxr/2.0.0/) or [MIMIC-CXR JPG](https://physionet.org/content/mimic-cxr-jpg/2.0.0/)), see ()[] to know how the `stay_id` is indentified. 
+2. `stay_id` - It represents a specific stay that a patient *stay* in the emergency deparement. This `stay_id` are mainly used to in the [MIMIC-IV ED](https://physionet.org/content/mimic-iv-ed/1.0/) dataste. However, in order to determine the age and health condition (*triage* data table) in the time that the patient took chest x-ray image, we need to identify the `stay_id` for each CXR image as well (It's not provided in [MIMIC-CXR](https://physionet.org/content/mimic-cxr/2.0.0/) or [MIMIC-CXR JPG](https://physionet.org/content/mimic-cxr-jpg/2.0.0/)), see (the section below)[https://github.com/ChihchengHsieh/Multimodal-Medical-Diagnosis-System/blob/master/README.md#identify-stay_id] to know how the `stay_id` is indentified. 
 
 3. `study_id` - This field is presented in  [MIMIC-CXR](https://physionet.org/content/mimic-cxr/2.0.0/) and [MIMIC-CXR JPG](https://physionet.org/content/mimic-cxr-jpg/2.0.0/). From single or multiple CXRs, the radiologists can perform a study and result in a text report. Normally, the labels are generated from this text report manually or automatically. 
 
@@ -88,7 +88,10 @@ As we have came out a architecture for the model, we can disgin the preporcessin
 1. Load the metadata from REFLACX. And, it will be the main dataframe we used to left-join other dataframes.
 2. Solve the issue mentioned above ([REFLACX repetivie labels](https://github.com/ChihchengHsieh/Multimodal-Medical-Diagnosis-System/blob/master/README.md#2-reflacx-ellipse-repetitive-label-issues)) through replacing the repetitive diseases by most common one.
 3. Left join other dataframes, including (patients table)[https://mimic.mit.edu/docs/iv/modules/core/patients/] from *MIMIC-IV*, metadata from MIMIC-CXR JPG and (triage table)[https://mimic.mit.edu/docs/iv/modules/ed/triage/] from *MIMIC-IV ED*.
-4. [Identifying `stay_id`]() for each CXR image.
+4. [Identifying `stay_id`](https://github.com/ChihchengHsieh/Multimodal-Medical-Diagnosis-System/blob/master/README.md#identify-stay_id) for each CXR image.
+5. Calculate the age for each patient using the relative time between `anchor_age` field in *patient* table and the time point of radiolograph taken.
+6. Construct the `image_path` for each instance through available ids.
+7. Simplify the dataframe by only including the features we need. 
 
 
 ### Identify stay_id
