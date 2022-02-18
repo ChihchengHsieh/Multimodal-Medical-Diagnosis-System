@@ -36,6 +36,8 @@ Before explaining how we joint these datasets and the relationship between them,
 
 4. `dicom_id` - This id represents a specific CXR image.
 
+5. `reflacx_id` - It's the `id` field in REFLACX dataset. In REFLACX, they ask differnt radiologists to provide diagnosis for the same CXR image. Therefore, a single `dicom_id` may has multiple `reflacx_id`. Usually, they are studied by different radiologists. 
+
 ## Relationships between ids
 
 A patient will have a specific `subject_id`. And, s\he can come to this emergency department of this hospital multiple times, resulting multiple `stay_id` for this patient. In each stay, the doctor may ask the patient to take CXR images for them to provide diagnosis. And, each diagnosis can be considered as a study and own a `study_id`. However, during each stay, the doctor may provide multiple diagnosis (studies) for the patient, which means that one `stay_id` can be related to multiple `study_id`. Also, to provide enough information for the radiologists, the patients may be asked to take multiple CXR images, which means a `study_id` can also ba linked with multiple `dicom_id`.
@@ -51,6 +53,52 @@ However, there's big update about the `transfer_id` (can be seen as `subject_id`
 ![image](https://user-images.githubusercontent.com/37566901/154606877-ed3bd902-7d3c-4c56-920f-0e86494e3067.png)
 
 Unfortunately, *MIMIC-CXR* and *MIMIC-CXR JPG* hasn't been udpated with the new `transfer_id` (`subject_id`). Therefore, we loss some links between *MIMIC-CXR JPG* and *MIMIC-IV*. The unmatching of the `subject_id` causes a significant decresae of the available dataset size.
+
+
+## Fields used.
+
+### We include these id fields
+
+```python
+['id', 'dicom_id', 'subject_id', 'stay_id', 'study_id', 'split']
+```
+(Note: `id` is the `id` field in REFLACX dataset and can be seen as `reflacx_id`)
+
+### The metadata of CXR images:
+
+1. `image_path`: path to JPG image.
+2. `ViewPosition`: Lateral or PA or AP view.
+3. `image_size_x`: width of the image.
+4. `image_size_y`: high of the image.
+5. `anomaly_location_ellipses_path`: path to the bouding ellipse dataframe (.csv file).
+
+### From MIMIC-IV ED triage table, we inlcude these fields:
+
+```python
+['temperature', 'heartrate', 'resprate', 'o2sat', 'sbp', 'dbp', 'pain', 'acuity']
+```
+
+(Note: more details of these fields, you can see the [official documentation](https://mimic.mit.edu/docs/iv/modules/ed/triage/))
+
+
+
+### All the label columns from REFLACX:
+
+```python
+[
+'Airway wall thickening', 'Atelectasis', 'Consolidation',
+'Enlarged cardiac silhouette', 'Fibrosis',
+'Groundglass opacity', 'Other', 'Pneumothorax', 'Pulmonary edema',
+'Quality issue', 'Support devices', 'Wide mediastinum',
+'Abnormal mediastinal contour', 'Acute fracture', 'Enlarged hilum',
+'Hiatal hernia', 'High lung volume / emphysema',
+'Interstitial lung disease', 'Lung nodule or mass',
+'Pleural abnormality'
+]
+```
+
+(Note: In the later sections, we usually use the 5 most common diseases in the dataset. They are *Enlarged cardiac silhouette, Atelectasis, Pleural abnormality, Consolidation, Pulmonary edema.)
+
 
 
 
