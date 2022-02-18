@@ -28,9 +28,7 @@ Before explaining how we joint these datasets and the relationship between them,
 
 1. `subject_id` - It can be considered as patient id (Note: 3. [MIMIC-CXR](https://physionet.org/content/mimic-cxr/2.0.0/) actually call it `patient_id` in the master_sheet, but we will call it `subject_id` in the later sections to prevent confusion.). Every patient has one `subject_id` to represent them in the dataset. All of the 6 datasets we mentioned above in the dataset section have this `subject_id`. 
 
-2. `stay_id` - It represents a specific stay that a patient *stay* in the emergency deparement. This `stay_id` are mainly used to in the [MIMIC-IV ED](https://physionet.org/content/mimic-iv-ed/1.0/) dataste. However, in order to determine the age and health condition (*triage* data table) in the time that the patient took chest x-ray image, we need to identify the `stay_id` for each CXR image as well (It's not provided in [MIMIC-CXR](https://physionet.org/content/mimic-cxr/2.0.0/) or [MIMIC-CXR JPG](https://physionet.org/content/mimic-cxr-jpg/2.0.0/)). 
-
-(Note: They method of identifying `stay_id` is provided by [Eye Gaze Data for Chest X-rays](https://physionet.org/content/egd-cxr/1.0.0/). The chest x-ray image only provide `subject_id` and the time that this radiograph taken. Therefore, we need to find the `subject_id` in [Eye Gaze Data for Chest X-rays](https://physionet.org/content/egd-cxr/1.0.0/) and check which `stay_id` has the duration to include this specific CXR.)
+2. `stay_id` - It represents a specific stay that a patient *stay* in the emergency deparement. This `stay_id` are mainly used to in the [MIMIC-IV ED](https://physionet.org/content/mimic-iv-ed/1.0/) dataste. However, in order to determine the age and health condition (*triage* data table) in the time that the patient took chest x-ray image, we need to identify the `stay_id` for each CXR image as well (It's not provided in [MIMIC-CXR](https://physionet.org/content/mimic-cxr/2.0.0/) or [MIMIC-CXR JPG](https://physionet.org/content/mimic-cxr-jpg/2.0.0/)), see ()[] to know how the `stay_id` is indentified. 
 
 3. `study_id` - This field is presented in  [MIMIC-CXR](https://physionet.org/content/mimic-cxr/2.0.0/) and [MIMIC-CXR JPG](https://physionet.org/content/mimic-cxr-jpg/2.0.0/). From single or multiple CXRs, the radiologists can perform a study and result in a text report. Normally, the labels are generated from this text report manually or automatically. 
 
@@ -87,10 +85,22 @@ As we have came out a architecture for the model, we can disgin the preporcessin
 
 ![REFLACX_preprocessing](https://user-images.githubusercontent.com/37566901/154677384-d844b9ee-4d0c-4792-b3c0-3225cf24a74d.png)
 
-1. Load the 
+1. Load the metadata from REFLACX. And, it will be the main dataframe we used to left-join other dataframes.
+2. Solve the issue mentioned above ([REFLACX repetivie labels](https://github.com/ChihchengHsieh/Multimodal-Medical-Diagnosis-System/blob/master/README.md#2-reflacx-ellipse-repetitive-label-issues)) through replacing the repetitive diseases by most common one.
+3. Left join other dataframes, including (patients table)[https://mimic.mit.edu/docs/iv/modules/core/patients/] from *MIMIC-IV*, metadata from MIMIC-CXR JPG and (triage table)[https://mimic.mit.edu/docs/iv/modules/ed/triage/] from *MIMIC-IV ED*.
+4. [Identifying `stay_id`]() for each CXR image.
 
+
+### Identify stay_id
+
+The metadata from MIMIC-IV JPG doesn't come with `stay_id`. However, the time of the radiography taken is recorded. In [Eye Gaze Data for Chest X-rays](https://physionet.org/content/egd-cxr/1.0.0/), they provide a method to identify the `stay_id`. 
+ 
+ 
+(Note: They method of identifying `stay_id` is provided by [Eye Gaze Data for Chest X-rays](https://physionet.org/content/egd-cxr/1.0.0/). The metadata from MIMIC-IV JPG only come with `subject_id` but not `stay_id`. Fortunately, the time of the radiograph taken is recorded, which means we can identify the `stay_id` by checking if the period of the stay inlcude time point of the radiograph taken for a cetain patient (`subject_id`).
 
 ## VII. Fields (features) used.
+
+
 
 ### We include these id fields
 
