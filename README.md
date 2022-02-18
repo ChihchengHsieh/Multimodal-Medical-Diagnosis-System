@@ -1,7 +1,7 @@
 # Multimodal-XAI-Medical-Diagnosis-System
 
 
-## Datasets used in this project.
+## I. Datasets used in this project.
 
 ### 1. [MIMIC-IV](https://physionet.org/content/mimiciv/1.0/)
 In this dataset, it has a `patient` table including the `gender` and `age` that we want to feed into our model.
@@ -22,7 +22,7 @@ In order to introduce eye tracking data into our model to promote explainability
 This dataset is formed by multiple radiologists to provide eye tracking data, bounding ellipse (abnormality ellipse), time-stamped utterance, and lables. This is the dataset we used for our eye tracking data and bouding ellipses. I
 
 
-## Temrs
+## II. Temrs
 
 Before explaining how we joint these datasets and the relationship between them, some terms have to be clarified. 
 
@@ -38,11 +38,13 @@ Before explaining how we joint these datasets and the relationship between them,
 
 5. `reflacx_id` - It's the `id` field in REFLACX dataset. In REFLACX, they ask differnt radiologists to provide diagnosis for the same CXR image. Therefore, a single `dicom_id` may has multiple `reflacx_id`. Usually, they are studied by different radiologists. 
 
-## Relationships between ids
+## III. Relationships between ids
 
 A patient will have a specific `subject_id`. And, s\he can come to this emergency department of this hospital multiple times, resulting multiple `stay_id` for this patient. In each stay, the doctor may ask the patient to take CXR images for them to provide diagnosis. And, each diagnosis can be considered as a study and own a `study_id`. However, during each stay, the doctor may provide multiple diagnosis (studies) for the patient, which means that one `stay_id` can be related to multiple `study_id`. Also, to provide enough information for the radiologists, the patients may be asked to take multiple CXR images, which means a `study_id` can also ba linked with multiple `dicom_id`.
 
-## Version issue.
+## IV. Dataset issues.
+
+### 1. Version issues amoung MIMIC-IV dataset.
 
 The MIMIC dataset currently has the version issue resulting the decrease of usable data. Three versions of MIMIC-IV have been released. 
 
@@ -55,7 +57,32 @@ However, there's big update about the `transfer_id` (can be seen as `subject_id`
 Unfortunately, *MIMIC-CXR* and *MIMIC-CXR JPG* hasn't been udpated with the new `transfer_id` (`subject_id`). Therefore, we loss some links between *MIMIC-CXR JPG* and *MIMIC-IV*. The unmatching of the `subject_id` causes a significant decresae of the available dataset size.
 
 
-## Fields used.
+### 2. REFLACX ellipse lable issues.
+
+In REFLACX, while the radiologists were diagnosing the CXR images, they are asked to point out certain abnomalities using ellipses. However, they seems changed the available abnoramilties in the middle of the experiment. We found two differernt types of labels among cases. Moreover, some of the lables seems repetitive and should be considered as one. The below chart shows the differences between these two versions and the repetitive lables we found. 
+
+![RepetitiveLabels](https://user-images.githubusercontent.com/37566901/154619705-048f8cbd-5f83-4d96-838f-d541499ecc09.png)
+
+
+(Note: In the preprocessing stage, we simply map the repetitive labels together.)
+
+
+## V. Task and Model to use.
+
+Before we and retrieve the data and preprocess them, we should determine what's the task we want to perfrom and what's the model architecture (prototype) we can use to perfrom this task. 
+
+In this project, we want to desgin a algorithm (neural network) that can take CXR image and clinical data to detect the abnormalities (diseases). Therefore, the model will apply  multi-modal learninig, which allow the model to process the data from differernt modalities. And the blow diagrams show the model prototype we came out. 
+
+![MultiModalArchitecture](https://user-images.githubusercontent.com/37566901/154620384-b3cdffed-9b4b-484d-85b8-8ea3b68c09cc.png)
+
+At the right hand side, we have a `FullyConnectedLayers` to process clincal data. And, this part is actually like the architecture below.:
+
+![ClinicalNet](https://user-images.githubusercontent.com/37566901/154620575-b751fe8a-de79-42e7-95e2-fd44afd5dbb2.png)
+
+(The only cetegorical data we have is `gender`. And, it will be passed into the embedding layer first before passing through the fully connected layers.)
+
+
+## VI. Fields used.
 
 ### We include these id fields
 
@@ -98,7 +125,6 @@ Unfortunately, *MIMIC-CXR* and *MIMIC-CXR JPG* hasn't been udpated with the new 
 ```
 
 (Note: In the later sections, we usually use the 5 most common diseases in the dataset. They are *Enlarged cardiac silhouette, Atelectasis, Pleural abnormality, Consolidation, Pulmonary edema.)
-
 
 
 
