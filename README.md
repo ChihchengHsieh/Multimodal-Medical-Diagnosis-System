@@ -145,7 +145,9 @@ The metadata from MIMIC-IV JPG doesn't come with `stay_id`. However, the time of
 ]
 ```
 
-(Note: In the later sections, we usually use the 5 most common diseases in the dataset. They are *Enlarged cardiac silhouette, Atelectasis, Pleural abnormality, Consolidation, Pulmonary edema.)
+(Note: In the later sections, we usually use the 5 most common diseases in the dataset. They are *Enlarged cardiac silhouette, Atelectasis, Pleural abnormality, Consolidation, Pulmonary edema.*)
+
+
 
 
 
