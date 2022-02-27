@@ -103,8 +103,6 @@ The metadata from MIMIC-IV JPG doesn't come with `stay_id`. However, the time of
 
 ## VII. Fields (features) used.
 
-
-
 ### We include these id fields
 
 ```python
@@ -150,10 +148,68 @@ The metadata from MIMIC-IV JPG doesn't come with `stay_id`. However, the time of
 
 
 
+## VIII. Training
+For the training process, we mostly follow the open-sourced code that CheXNext given on Github but replace the data and the model as ours. 
+
+### 1. First attemp.
+
+After we contructed the model and the pipeline for model. We started our first attempt on the training. In the middle of 1st training process, we immediately foud the model is not trainable. The model will simpily classify everything to major class. 
+
+#### Training graph
+![image](https://user-images.githubusercontent.com/37566901/155865804-9aab0842-f7e5-4a05-adb3-2038ef2491da.png)
+
+#### Confusion Matrix
+![image](https://user-images.githubusercontent.com/37566901/155865809-ebfad741-63af-42e3-8dd5-233d0e306e4c.png)
+
+
+#### Solution found:
+The solution we found for this problem is to adjust the learning rate scheduler. The CheXNeXT use CheXpert dataset consists 224,316 chest radiographs while our filtered REFLACX dataset only has 674 cases (590 radiographs). In each epoch, CheXNeXT has 332x more batches than us, which means they can apply more aggressive learning rate scheduler after each epoch. After setting up a mild number for learning rate scheduler, the model became trainable.
+
+![image](https://user-images.githubusercontent.com/37566901/155867502-b7036de7-7835-4655-843d-05949fa1905a.png)
 
 
 
+### 2. Overfitting issue
 
+After the model has became trainable, an overfitting raised. 
+
+![image](https://user-images.githubusercontent.com/37566901/155867681-4638ac19-4ef3-4ca9-871d-a4f8b73a1a8e.png)
+
+We tried adding L2 regularisation, increasing the dropout rate and weighting the loss among classes, which slightly mitigate the overfitting. However, the performance gap between training and validation is still considerably large. To futher improve the model performance and generalisation, we decided to apply [**DeepAUC**](https://arxiv.org/abs/2012.03173) loss function, which is currently ranked 1st in the CheXpert leaderboard. Unlike the the loss functions we used, `multi-lable soft-margin loss` or `weighted binary cross entropy`, **DeepAUC** is designed in mind to optimise AUC rather than accuracy, which is what we desire for medical datasets.
+
+
+### 3. DeepAUC
+
+After applying **DeepAUC**, both performance and generalisation gained slight improvement. However, the overfitting problem still persist becasue how small our available dataset is.
+
+![image](https://user-images.githubusercontent.com/37566901/155868177-beeebd0e-e971-49e9-b8c2-fcb9379f8077.png)
+
+
+
+## IX. Train different models.
+
+## With & Without clincal data.
+
+From previous examples, we used clinical + CXR image to train the model. In this phase, we want to compare **CXR + clincal data** model and **CXR only** model. The training result are shown below. We find that clinical data can slightly improve the performance on training and validation dataset.
+
+![image](https://user-images.githubusercontent.com/37566901/155869533-982ad3ae-f44a-42f8-8986-156311ca905a.png)
+
+
+One of our reason to include clinical data is that we assume the clinical data can promote explainability. However, as we ploted the GradCAM++ for both models, we found the **CXR + clinical data** model has a difficulty to point out abnormalities and has strange rectangles around corners. This can be cuased by the elementwise sum operation we conduct in the fusion layer. To further investigate this problem, we train another model with alternative fusion strategy, concatenation. And, the result are shown below.
+
+![image](https://user-images.githubusercontent.com/37566901/155870609-747c0465-9357-4e09-8e85-8d521fa0aa27.png)
+
+![image](https://user-images.githubusercontent.com/37566901/155870613-4cdb1b9b-7170-469a-a8dd-33e3015df86f.png)
+
+The model with concatenation operation for fusion has better performance, Also, in the GradCAM, it doesn't show strange rectangle around the coners of radiographs. Therefore, we decided to use concatenation operation for rest of the experiments to obtain better GradCAM++ images (heatmaps). 
+
+The GradCAM++ is using the last convolutional layer to calculat the gradient to output and obtain the activation map. However, in the **CXR + clinical data** model, the CXR images is not the only contributing to the output. When we'er using the GradCAM++ to generate the sailency map, the GradCAN can't measure the effect of clinical data, which may affect the explainability.
+
+### Add without CXR. 
+
+Also, we add an experiement to know how's the perfromance when the model can only use clinical data. 
+
+![image](https://user-images.githubusercontent.com/37566901/155871601-f9ecdefe-b24d-4b0c-b8fb-b2f5a3b1b218.png)
 
 
 
