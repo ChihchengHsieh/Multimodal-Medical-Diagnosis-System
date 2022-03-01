@@ -205,13 +205,14 @@ The model with concatenation operation for fusion has better performance, Also, 
 
 The GradCAM++ is using the last convolutional layer to calculat the gradient to output and obtain the activation map. However, in the **CXR + clinical data** model, the CXR images is not the only contributing to the output. When we'er using the GradCAM++ to generate the sailency map, the GradCAN can't measure the effect of clinical data, which may affect the explainability.
 
-### Add without CXR. 
+### Add *without CXR*. 
 
-Also, we add an experiement to know how's the perfromance when the model can only use clinical data. 
+Also, we add an experiement to know how's the perfromance when the model can only use clinical data. The result shows the model with *only clinical data* can't be trainable.
 
 ![image](https://user-images.githubusercontent.com/37566901/155871601-f9ecdefe-b24d-4b0c-b8fb-b2f5a3b1b218.png)
 
 
+###
 
 
 
