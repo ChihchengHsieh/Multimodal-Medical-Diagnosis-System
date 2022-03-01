@@ -1,5 +1,6 @@
 from matplotlib.patches import Ellipse
 
+
 def relabel_ellipse_df(ellipse_df, label_maps={
     'Airway wall thickening': ['Airway wall thickening'],
     'Atelectasis': ['Atelectasis'],
@@ -21,18 +22,19 @@ def relabel_ellipse_df(ellipse_df, label_maps={
     'Lung nodule or mass': ['Lung nodule or mass', 'Mass', 'Nodule'],
     'Pleural abnormality': ['Pleural abnormality', 'Pleural thickening', 'Pleural effusion'],
 },
-    fixed_columns = ['xmin', 'ymin', 'xmax', 'ymax', 'certainty'],
+    fixed_columns=['xmin', 'ymin', 'xmax', 'ymax', 'certainty'],
 ):
     relabeled_ellipses_df = ellipse_df[fixed_columns]
 
     # relabel it.
     for k in label_maps.keys():
-        relabeled_ellipses_df[k] = ellipse_df[[l for l in label_maps[k] if l in ellipse_df.columns]].any(axis=1)
-    
+        relabeled_ellipses_df[k] = ellipse_df[[
+            l for l in label_maps[k] if l in ellipse_df.columns]].any(axis=1)
+
     return relabeled_ellipses_df
 
 
-def get_ellipses_patch(relabeled_ellipse_df, d, image_size_x, image_size_y, model_input_image_size):
+def get_ellipses_patch(relabeled_ellipse_df, d, image_size_x, image_size_y, model_input_image_size, color_code_map=None):
     ellipses = []
 
     for _, instance in relabeled_ellipse_df[relabeled_ellipse_df[d]].iterrows():
@@ -43,6 +45,25 @@ def get_ellipses_patch(relabeled_ellipse_df, d, image_size_x, image_size_y, mode
         x_ratio = model_input_image_size / image_size_x
         y_ratio = model_input_image_size / image_size_y
 
-        ellipses.append(Ellipse((center_x * x_ratio, center_y * y_ratio), width=width*x_ratio, height=height*y_ratio, edgecolor="red",facecolor="none", linewidth=2))
+        ellipses.append(Ellipse((center_x * x_ratio, center_y * y_ratio), width=width*x_ratio, height=height*y_ratio,
+                        edgecolor=color_code_map[d] if not (color_code_map is None) else "red", facecolor="none", linewidth=2))
 
     return ellipses
+
+
+def get_color_coded_ellipses_for_dicom(
+        dataset,
+        relabeled_ellipse_df,
+        image_size_x,
+        image_size_y,
+        model_input_image_size,
+        color_code_map,
+        ):
+
+    all_ellipses = []
+
+    for d in dataset.labels_cols:
+        all_ellipses.extend(get_ellipses_patch(
+            relabeled_ellipse_df, d, image_size_x, image_size_y, model_input_image_size, color_code_map))
+
+    return all_ellipses
