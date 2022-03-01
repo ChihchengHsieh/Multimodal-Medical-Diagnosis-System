@@ -212,10 +212,4 @@ Also, we add an experiement to know how's the perfromance when the model can onl
 ![image](https://user-images.githubusercontent.com/37566901/155871601-f9ecdefe-b24d-4b0c-b8fb-b2f5a3b1b218.png)
 
 
-###
-
-
-
-
-
 
