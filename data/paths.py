@@ -2,7 +2,7 @@ import os
 from enum import Enum
 
 class TabularDataPaths():
-
+    
     class SpreadSheet():
 
         def get_sreadsheet(mimic_folder_path, path):
